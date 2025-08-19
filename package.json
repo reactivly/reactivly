@@ -1,0 +1,20 @@
+{
+  "name": "repo",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently --names \"client,server\" --prefix-colors \"cyan,magenta\" \"pnpm dev:client\" \"pnpm dev:server\"",
+    "dev:client": "pnpm --filter @apps/client dev",
+    "dev:server": "pnpm --filter @apps/server dev"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.0",
+    "cross-env": "^7.0.3",
+    "prettier": "^3.5.0",
+    "turbo": "^2.5.4",
+    "typescript": "5.7.3"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "packageManager": "pnpm@8.15.6"
+}
