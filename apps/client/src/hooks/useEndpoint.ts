@@ -1,62 +1,82 @@
-import { useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { EndpointData, EndpointKeys } from "@apps/server";
+import { useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
+import type { Endpoints } from "@apps/server";
 
-export function useEndpoint<K extends EndpointKeys>(
-  endpoint: K,
-  wsData?: EndpointData<K>
-) {
-  const queryClient = useQueryClient();
+// wsClient.ts (singleton, no hooks)
+export class EndpointsWSClient {
+  ws: WebSocket | null = null;
+  subscriptions = new Map<string, Set<(data: any) => void>>();
 
-  // Initialize the cache with wsData if available
-  const query = useQuery<EndpointData<K>, Error>({
-    queryKey: [endpoint],
-    // no fetcher: WS is the source of truth
-    queryFn: async () => {
-      // return the latest cached value, or throw to mark "no data yet"
-      const cached = queryClient.getQueryData<EndpointData<K>>([endpoint]);
-      if (cached) return cached;
-      throw new Error("No data available (waiting for WS)");
-    },
-    initialData: () => wsData,
-    staleTime: Infinity, // data only changes via WS
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-  });
+  init(url: string) {
+    if (!this.ws) {
+      this.ws = new WebSocket(url);
+      this.ws.onmessage = (ev) => {
+        const msg = JSON.parse(ev.data);
+        if (msg.type === "dataUpdate") {
+          const key = msg.endpoint + JSON.stringify(msg.params ?? {});
+          this.subscriptions.get(key)?.forEach((cb) => cb(msg.data));
+        }
+      };
+    }
+  }
 
-  useEffect(() => {
-    const ws = new WebSocket("ws://localhost:3001");
-
-    ws.onopen = () => {
-      console.log("✅ WS connected");
-      // ✅ send subscription request once connected
-      ws.send(
-        JSON.stringify({
-          type: "subscribe",
-          endpoints: [endpoint],
-        })
-      );
-    };
-    
-    ws.onmessage = (ev) => {
-      const msg = JSON.parse(ev.data);
-      if (msg.type === "dataUpdate" && msg.endpoint === endpoint) {
-        // Update tanstack query cache
-        queryClient.setQueryData([endpoint], msg.data);
+  subscribe<K extends string>(
+    endpoint: K,
+    params: any,
+    cb: (data: any) => void
+  ) {
+    const key = endpoint + JSON.stringify(params ?? {});
+    let set = this.subscriptions.get(key);
+    if (!set) {
+      set = new Set();
+      this.subscriptions.set(key, set);
+      if (this.ws!.readyState === WebSocket.OPEN) {
+        this.ws!.send(JSON.stringify({ type: "subscribe", endpoint, params }));
+      } else {
+        this.ws!.addEventListener("open", () => {
+          this.ws!.send(JSON.stringify({ type: "subscribe", endpoint, params }));
+        }, { once: true });
+      }
+    }
+    set.add(cb);
+    return () => {
+      set!.delete(cb);
+      if (set!.size === 0 && this.ws?.readyState === WebSocket.OPEN) {
+        this.ws!.send(JSON.stringify({ type: "unsubscribe", endpoint, params }));
       }
     };
+  }
+}
 
-    ws.onerror = (err) => {
-      console.error("❌ WS error", err);
-    };
+const wsClient = new EndpointsWSClient();
+wsClient.init("ws://localhost:3001");
 
-    ws.onclose = () => {
-      console.log("⚠️ WS closed");
-    };
+// Infer keys, params, and return types
+type EndpointKeys = keyof Endpoints;
+type EndpointParams<K extends EndpointKeys> =
+  Endpoints[K] extends { fetch: (params: infer P) => any } ? P : undefined;
+type EndpointResult<K extends EndpointKeys> =
+  Endpoints[K] extends { fetch: (...args: any) => Promise<infer R> } ? R : never;
 
-    // return () => ws.close();
-  }, [endpoint, queryClient]);
+export function useEndpoints() {
+  const queryClient = useQueryClient();
 
-  return query;
+  return {
+    query<K extends EndpointKeys>(
+      endpoint: K,
+      params?: EndpointParams<K>
+    ): UseQueryResult<EndpointResult<K>, Error> {
+      return useQuery({
+        queryKey: [endpoint, params ?? {}],
+        queryFn: () =>
+          new Promise<EndpointResult<K>>((resolve) => {
+            const unsub = wsClient.subscribe(endpoint, params ?? {}, (data) => {
+              resolve(data);
+              // Keep live updates in cache
+              queryClient.setQueryData([endpoint, params ?? {}], data);
+            });
+          }),
+        staleTime: Infinity,
+      });
+    },
+  };
 }

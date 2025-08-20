@@ -4,82 +4,84 @@ import pg from "pg";
 import type { AnyPgTable } from "drizzle-orm/pg-core";
 import { getTableName } from "drizzle-orm";
 
-type EndpointConfig<T> = {
-  sources: AnyPgTable[];
-  fetch: () => Promise<T>;
+// One endpoint = source tables + fetcher that can take params
+export type Endpoint<Sources extends readonly AnyPgTable[], Params, R> = {
+  sources: Sources;
+  fetch: (params?: Params) => Promise<R>;
 };
 
-type EndpointsMap = Record<string, EndpointConfig<any>>;
+export default async function defineEndpoints<
+  E extends Record<string, Endpoint<readonly AnyPgTable[], any, any>>
+>(endpoints: E) {
+  type EndpointName = keyof E;
 
-export async function defineEndpoints<TEndpoints extends EndpointsMap>(
-  endpoints: TEndpoints
-) {
+  // Postgres client
   const pgClient = new pg.Client({ connectionString: process.env.DATABASE_URL });
   await pgClient.connect();
 
-  // Map channel -> endpoint names
-  const channelToEndpoints = new Map<string, string[]>();
-  for (const [name, def] of Object.entries(endpoints)) {
-    def.sources.forEach((src) => {
-      const ch = `${getTableName(src)}_channel`;
+  // Build channel -> endpoints mapping
+  const endpointKeys = Object.keys(endpoints) as EndpointName[];
+  const channelToEndpoints = new Map<string, EndpointName[]>();
+
+  for (const key of endpointKeys) {
+    for (const table of endpoints[key]!.sources) {
+      const ch = `${getTableName(table)}_channel`;
       const arr = channelToEndpoints.get(ch);
-      if (arr) arr.push(name);
-      else channelToEndpoints.set(ch, [name]);
-    });
+      if (arr) {
+        if (!arr.includes(key)) arr.push(key);
+      } else {
+        channelToEndpoints.set(ch, [key]);
+      }
+    }
   }
 
-  // Listen to all channels
+  // Subscribe Postgres LISTEN to all channels
   for (const ch of channelToEndpoints.keys()) {
     await pgClient.query(`LISTEN "${ch}"`);
   }
 
+  // WebSocket server
   const wss = new WebSocketServer({ port: 3001 });
-  const subscriptions = new Map<WebSocket, Set<string>>();
+  const subscriptions = new Map<WebSocket, Map<EndpointName, any>>(); // track params
 
-  // PostgreSQL NOTIFY handler
+  // On DB NOTIFY, fetch and broadcast
   pgClient.on("notification", async (msg) => {
-    const endpointsAffected = channelToEndpoints.get(msg.channel);
-    if (!endpointsAffected) return;
+    console.log("DB NOTIFY:", msg.channel);
+    const affectedEndpoints = channelToEndpoints.get(msg.channel);
+    if (!affectedEndpoints) return;
 
-    for (const endpointName of endpointsAffected) {
-      try {
-        const data = await endpoints[endpointName]!.fetch();
-
-        for (const [ws, subs] of subscriptions.entries()) {
-          if (subs.has(endpointName) && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: "dataUpdate", endpoint: endpointName, data }));
-          }
+    for (const endpointKey of affectedEndpoints) {
+      // Re-fetch for all params currently subscribed
+      for (const [ws, endpointMap] of subscriptions.entries()) {
+        if (endpointMap.has(endpointKey) && ws.readyState === WebSocket.OPEN) {
+          const params = endpointMap.get(endpointKey);
+          const data = await endpoints[endpointKey]!.fetch(params);
+          ws.send(JSON.stringify({ type: "dataUpdate", endpoint: endpointKey, params, data }));
         }
-      } catch (err) {
-        console.error(`Fetch failed for endpoint "${endpointName}":`, err);
       }
     }
   });
 
-  // WebSocket connection
+  // WS subscribe/unsubscribe
   wss.on("connection", (ws) => {
-    subscriptions.set(ws, new Set());
+    console.log("New WebSocket connection");
+    subscriptions.set(ws, new Map());
 
     ws.on("message", async (raw) => {
+      console.log("WS message:", raw.toString());
       try {
-        const msg = JSON.parse(raw.toString());
+        const msg = JSON.parse(raw.toString()) as
+          | { type: "subscribe"; endpoint: EndpointName; params?: any }
+          | { type: "unsubscribe"; endpoint: EndpointName; params?: any };
 
-        if (msg.type === "subscribe" && Array.isArray(msg.endpoints)) {
-          const subs = subscriptions.get(ws)!;
-          msg.endpoints.forEach((ep: string) => subs.add(ep));
+        const endpointMap = subscriptions.get(ws)!;
 
-          // send initial snapshot
-          for (const ep of msg.endpoints) {
-            if (endpoints[ep]) {
-              const data = await endpoints[ep].fetch();
-              ws.send(JSON.stringify({ type: "dataUpdate", endpoint: ep, data }));
-            }
-          }
-        }
-
-        if (msg.type === "unsubscribe" && Array.isArray(msg.endpoints)) {
-          const subs = subscriptions.get(ws)!;
-          msg.endpoints.forEach((ep: string) => subs.delete(ep));
+        if (msg.type === "subscribe") {
+          endpointMap.set(msg.endpoint, msg.params ?? null);
+          const data = await endpoints[msg.endpoint]!.fetch(msg.params);
+          ws.send(JSON.stringify({ type: "dataUpdate", endpoint: msg.endpoint, params: msg.params, data }));
+        } else if (msg.type === "unsubscribe") {
+          endpointMap.delete(msg.endpoint);
         }
       } catch (err) {
         console.error("Invalid WS message:", err);
@@ -91,5 +93,11 @@ export async function defineEndpoints<TEndpoints extends EndpointsMap>(
 
   console.log("✅ Reactive WebSocket server running on ws://localhost:3001");
 
-  return { wss, pgClient, subscriptions, endpoints, channelToEndpoints } as const;
+  return {
+    wss,
+    pgClient,
+    subscriptions,
+    endpoints,
+    channelToEndpoints,
+  } as const;
 }

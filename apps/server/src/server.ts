@@ -1,7 +1,7 @@
 // server.ts
 import { db } from "./db/client.js";
 import { asc, eq } from "drizzle-orm";
-import {defineEndpoints} from "./defineEndpoints.js";
+import defineEndpoints from "./defineEndpoints.js";
 import { items, orders } from "./db/schema.js";
 
 // Endpoints (what clients subscribe to)
@@ -42,8 +42,5 @@ const server = await defineEndpoints({
 });
 
 
-// Export endpoint types for client
-export type EndpointKeys = keyof typeof server.endpoints;
-export type EndpointData<K extends EndpointKeys> = Awaited<
-  ReturnType<typeof server.endpoints[K]["fetch"]>
->;
+// Infer types
+export type Endpoints = typeof server.endpoints;
