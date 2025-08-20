@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
-import type { Endpoints } from "@apps/server";
+import type { EndpointParams, Endpoints } from "@apps/server";
 
 // wsClient.ts (singleton, no hooks)
 export class EndpointsWSClient {
@@ -52,8 +52,6 @@ wsClient.init("ws://localhost:3001");
 
 // Infer keys, params, and return types
 type EndpointKeys = keyof Endpoints;
-type EndpointParams<K extends EndpointKeys> =
-  Endpoints[K] extends { fetch: (params: infer P) => any } ? P : undefined;
 type EndpointResult<K extends EndpointKeys> =
   Endpoints[K] extends { fetch: (...args: any) => Promise<infer R> } ? R : never;
 

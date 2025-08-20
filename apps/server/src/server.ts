@@ -3,6 +3,7 @@ import { db } from "./db/client.js";
 import { asc, eq } from "drizzle-orm";
 import defineEndpoints from "./defineEndpoints.js";
 import { items, orders } from "./db/schema.js";
+import z from "zod";
 
 // Endpoints (what clients subscribe to)
 // - `itemsList`: depends on `items` only
@@ -15,7 +16,10 @@ const server = await defineEndpoints({
   },
   ordersByItem: {
     sources: [orders],
-    fetch: async () => {
+    input: z.object({
+      filter: z.string().optional(), // optional filter param
+    }),
+    fetch: async (params) => {
       const rows = await db.select().from(orders).orderBy(asc(orders.id));
       // reduce into a map { itemId -> totalQuantity }
       return rows.reduce<Record<number, number>>((acc, r) => {
@@ -44,3 +48,6 @@ const server = await defineEndpoints({
 
 // Infer types
 export type Endpoints = typeof server.endpoints;
+
+export type EndpointParams<K extends keyof Endpoints> =
+  Endpoints[K] extends { input: z.ZodType } ? z.infer<Endpoints[K]["input"]> : undefined;

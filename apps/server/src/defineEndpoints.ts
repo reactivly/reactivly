@@ -3,10 +3,16 @@ import { WebSocketServer, WebSocket } from "ws";
 import pg from "pg";
 import type { AnyPgTable } from "drizzle-orm/pg-core";
 import { getTableName } from "drizzle-orm";
+import type z from "zod";
 
-// One endpoint = source tables + fetcher that can take params
-export type Endpoint<Sources extends readonly AnyPgTable[], Params, R> = {
+// One endpoint = source tables + fetcher + optional Zod input
+export type Endpoint<
+  Sources extends readonly AnyPgTable[],
+  Params = undefined,
+  R = any
+> = {
   sources: Sources;
+  input?: z.ZodType; // optional Zod schema
   fetch: (params?: Params) => Promise<R>;
 };
 
@@ -44,14 +50,21 @@ export default async function defineEndpoints<
   const wss = new WebSocketServer({ port: 3001 });
   const subscriptions = new Map<WebSocket, Map<EndpointName, any>>(); // track params
 
+  // Validate params using Zod schema
+  function validateParams<K extends EndpointName>(key: K, params: any) {
+    const endpoint = endpoints[key]!;
+    if (endpoint.input) {
+      return endpoint.input.parse(params);
+    }
+    return params ?? null;
+  }
+
   // On DB NOTIFY, fetch and broadcast
   pgClient.on("notification", async (msg) => {
-    console.log("DB NOTIFY:", msg.channel);
     const affectedEndpoints = channelToEndpoints.get(msg.channel);
     if (!affectedEndpoints) return;
 
     for (const endpointKey of affectedEndpoints) {
-      // Re-fetch for all params currently subscribed
       for (const [ws, endpointMap] of subscriptions.entries()) {
         if (endpointMap.has(endpointKey) && ws.readyState === WebSocket.OPEN) {
           const params = endpointMap.get(endpointKey);
@@ -64,11 +77,9 @@ export default async function defineEndpoints<
 
   // WS subscribe/unsubscribe
   wss.on("connection", (ws) => {
-    console.log("New WebSocket connection");
     subscriptions.set(ws, new Map());
 
     ws.on("message", async (raw) => {
-      console.log("WS message:", raw.toString());
       try {
         const msg = JSON.parse(raw.toString()) as
           | { type: "subscribe"; endpoint: EndpointName; params?: any }
@@ -77,9 +88,10 @@ export default async function defineEndpoints<
         const endpointMap = subscriptions.get(ws)!;
 
         if (msg.type === "subscribe") {
-          endpointMap.set(msg.endpoint, msg.params ?? null);
-          const data = await endpoints[msg.endpoint]!.fetch(msg.params);
-          ws.send(JSON.stringify({ type: "dataUpdate", endpoint: msg.endpoint, params: msg.params, data }));
+          const params = validateParams(msg.endpoint, msg.params);
+          endpointMap.set(msg.endpoint, params);
+          const data = await endpoints[msg.endpoint]!.fetch(params);
+          ws.send(JSON.stringify({ type: "dataUpdate", endpoint: msg.endpoint, params, data }));
         } else if (msg.type === "unsubscribe") {
           endpointMap.delete(msg.endpoint);
         }

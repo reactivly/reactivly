@@ -14,7 +14,7 @@ export function App() {
 }
 
 function OrdersByItem() {
-  const { data } = useEndpoints().query("ordersByItem", {  });
+  const { data } = useEndpoints().query("ordersByItem", { filter: "test" });
 
   return <pre>{JSON.stringify(data, null, 2)}</pre>;
 }
