@@ -11,6 +11,7 @@ import { fsReactiveSource } from "@packages/server-fs";
 import { items, orders } from "./db/schema.js";
 import z from "zod";
 import fs from "fs/promises";
+import { createFastifyServer } from "@packages/server-fastify";
 
 console.log("CWD:", process.cwd());
 
@@ -55,6 +56,9 @@ const server = await defineEndpoints({
     },
   }),
 });
+
+createFastifyServer(server.endpoints, { port: 3000 });
+
 
 // Infer types
 export type Endpoints = typeof server.endpoints;

@@ -130,6 +130,9 @@ importers:
       '@packages/server':
         specifier: '*'
         version: link:../../packages/server
+      '@packages/server-fastify':
+        specifier: '*'
+        version: link:../../packages/server-fastify
       '@packages/server-fs':
         specifier: '*'
         version: link:../../packages/server-fs
@@ -281,9 +284,6 @@ importers:
 
   packages/server:
     dependencies:
-      fastify:
-        specifier: ^5.5.0
-        version: 5.5.0
       ws:
         specifier: ^8.18.3
         version: 8.18.3
@@ -297,6 +297,28 @@ importers:
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
+      tsx:
+        specifier: ^4.20.4
+        version: 4.20.4
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.2
+
+  packages/server-fastify:
+    dependencies:
+      '@packages/server':
+        specifier: '*'
+        version: link:../server
+      fastify:
+        specifier: ^5.5.0
+        version: 5.5.0
+      zod:
+        specifier: ^4.0.17
+        version: 4.0.17
+    devDependencies:
+      '@types/node':
+        specifier: ^24.3.0
+        version: 24.3.0
       tsx:
         specifier: ^4.20.4
         version: 4.20.4
