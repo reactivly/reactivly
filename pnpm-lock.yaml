@@ -87,6 +87,9 @@ importers:
       '@packages/server':
         specifier: '*'
         version: link:../../packages/server
+      '@packages/server-pg':
+        specifier: '*'
+        version: link:../../packages/server-pg
       drizzle-orm:
         specifier: ^0.44.4
         version: 0.44.4(@types/pg@8.15.5)(pg@8.16.3)(postgres@3.4.7)
@@ -198,18 +201,9 @@ importers:
 
   packages/server:
     dependencies:
-      drizzle-orm:
-        specifier: ^0.44.4
-        version: 0.44.4(@types/pg@8.15.5)(pg@8.16.3)(postgres@3.4.7)
       fastify:
         specifier: ^5.5.0
         version: 5.5.0
-      pg:
-        specifier: ^8.16.3
-        version: 8.16.3
-      postgres:
-        specifier: ^3.4.7
-        version: 3.4.7
       ws:
         specifier: ^8.18.3
         version: 8.18.3
@@ -220,12 +214,37 @@ importers:
       '@types/node':
         specifier: ^24.3.0
         version: 24.3.0
-      '@types/pg':
-        specifier: ^8.15.5
-        version: 8.15.5
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
+      tsx:
+        specifier: ^4.20.4
+        version: 4.20.4
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.2
+
+  packages/server-pg:
+    dependencies:
+      drizzle-orm:
+        specifier: ^0.44.4
+        version: 0.44.4(@types/pg@8.15.5)(pg@8.16.3)(postgres@3.4.7)
+      pg:
+        specifier: ^8.16.3
+        version: 8.16.3
+      postgres:
+        specifier: ^3.4.7
+        version: 3.4.7
+      zod:
+        specifier: ^4.0.17
+        version: 4.0.17
+    devDependencies:
+      '@packages/server':
+        specifier: '*'
+        version: link:../server
+      '@types/pg':
+        specifier: ^8.15.5
+        version: 8.15.5
       drizzle-kit:
         specifier: ^0.31.4
         version: 0.31.4

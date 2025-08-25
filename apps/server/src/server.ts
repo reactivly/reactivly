@@ -6,6 +6,7 @@ import {
   defineEndpoints,
   type AnyEndpoint,
 } from "@packages/server";
+import { pgReactiveSource } from "@packages/server-pg";
 import { items, orders } from "./db/schema.js";
 import z from "zod";
 
@@ -21,11 +22,11 @@ if (!connectionString) {
 const server = await defineEndpoints(
   {
     itemsList: defineEndpoint({
-      sources: [items],
+      sources: [pgReactiveSource(items)],
       fetch: () => db.select().from(items).orderBy(asc(items.id)),
     }),
     ordersByItem: defineEndpoint({
-      sources: [orders],
+      sources: [pgReactiveSource(orders)],
       input: z.object({
         filter: z.string().optional(), // optional filter param
       }),
