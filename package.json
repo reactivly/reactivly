@@ -4,6 +4,7 @@
   "scripts": {
     "dev": "concurrently --names \"client,server\" --prefix-colors \"cyan,magenta\" \"pnpm dev:client\" \"pnpm dev:server\"",
     "dev:client": "pnpm --filter @apps/client dev",
+    "dev:client-vue": "pnpm --filter @apps/client-vue dev",
     "dev:server": "pnpm --filter @apps/server dev"
   },
   "devDependencies": {
