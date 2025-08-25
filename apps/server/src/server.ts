@@ -1,7 +1,10 @@
 // server.ts
 import { db } from "./db/client.js";
 import { asc, eq } from "drizzle-orm";
-import defineEndpoints from "./defineEndpoints.js";
+import defineEndpoints, {
+  defineEndpoint,
+  type AnyEndpoint,
+} from "./defineEndpoints.js";
 import { items, orders } from "./db/schema.js";
 import z from "zod";
 
@@ -10,11 +13,11 @@ import z from "zod";
 // - `ordersByItem`: depends on `orders` only (example transform)
 // - `dashboard`: depends on BOTH `items` and `orders`
 const server = await defineEndpoints({
-  itemsList: {
+  itemsList: defineEndpoint({
     sources: [items],
     fetch: () => db.select().from(items).orderBy(asc(items.id)),
-  },
-  ordersByItem: {
+  }),
+  ordersByItem: defineEndpoint({
     sources: [orders],
     input: z.object({
       filter: z.string().optional(), // optional filter param
@@ -27,27 +30,23 @@ const server = await defineEndpoints({
         return acc;
       }, {});
     },
-  },
-  // dashboard: {
-  //   sources: [items, orders],
-  //   fetch: async () => {
-  //     const [allItems, allOrders] = await Promise.all([
-  //       db.select().from(items).orderBy(asc(items.id)),
-  //       db.select().from(orders).orderBy(asc(orders.id)),
-  //     ]);
-  //     return {
-  //       countItems: allItems.length,
-  //       countOrders: allOrders.length,
-  //       lastItem: allItems.at(-1) ?? null,
-  //       lastOrder: allOrders.at(-1) ?? null,
-  //     };
-  //   },
-  // },
+  }),
 });
 
-
 // Infer types
+// keys
 export type Endpoints = typeof server.endpoints;
 
-export type EndpointParams<K extends keyof Endpoints> =
-  Endpoints[K] extends { input: z.ZodType } ? z.infer<Endpoints[K]["input"]> : undefined;
+export type EndpointKeys = keyof Endpoints;
+
+export type EndpointParams<K extends EndpointKeys> = Endpoints[K] extends {
+  input: z.ZodTypeAny;
+}
+  ? z.infer<Endpoints[K]["input"]>
+  : undefined;
+
+export type EndpointResult<K extends EndpointKeys> = Endpoints[K] extends {
+  fetch: (...args: any) => infer R;
+}
+  ? Awaited<R>
+  : never;

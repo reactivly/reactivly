@@ -1,5 +1,13 @@
-import { useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
-import type { EndpointParams, Endpoints } from "@apps/server";
+import {
+  useQuery,
+  useQueryClient,
+  type UseQueryResult,
+} from "@tanstack/react-query";
+import type {
+  EndpointParams,
+  EndpointResult,
+  Endpoints,
+} from "@apps/server";
 
 // wsClient.ts (singleton, no hooks)
 export class EndpointsWSClient {
@@ -32,16 +40,24 @@ export class EndpointsWSClient {
       if (this.ws!.readyState === WebSocket.OPEN) {
         this.ws!.send(JSON.stringify({ type: "subscribe", endpoint, params }));
       } else {
-        this.ws!.addEventListener("open", () => {
-          this.ws!.send(JSON.stringify({ type: "subscribe", endpoint, params }));
-        }, { once: true });
+        this.ws!.addEventListener(
+          "open",
+          () => {
+            this.ws!.send(
+              JSON.stringify({ type: "subscribe", endpoint, params })
+            );
+          },
+          { once: true }
+        );
       }
     }
     set.add(cb);
     return () => {
       set!.delete(cb);
       if (set!.size === 0 && this.ws?.readyState === WebSocket.OPEN) {
-        this.ws!.send(JSON.stringify({ type: "unsubscribe", endpoint, params }));
+        this.ws!.send(
+          JSON.stringify({ type: "unsubscribe", endpoint, params })
+        );
       }
     };
   }
@@ -50,28 +66,26 @@ export class EndpointsWSClient {
 const wsClient = new EndpointsWSClient();
 wsClient.init("ws://localhost:3001");
 
-// Infer keys, params, and return types
-type EndpointKeys = keyof Endpoints;
-type EndpointResult<K extends EndpointKeys> =
-  Endpoints[K] extends { fetch: (...args: any) => Promise<infer R> } ? R : never;
-
 export function useEndpoints() {
   const queryClient = useQueryClient();
 
   return {
-    query<K extends EndpointKeys>(
+    query<K extends keyof Endpoints>(
       endpoint: K,
       params?: EndpointParams<K>
-    ): UseQueryResult<EndpointResult<K>, Error> {
-      return useQuery({
+    ): UseQueryResult<EndpointResult<K>> {
+      return useQuery<EndpointResult<K>>({
         queryKey: [endpoint, params ?? {}],
         queryFn: () =>
           new Promise<EndpointResult<K>>((resolve) => {
-            const unsub = wsClient.subscribe(endpoint, params ?? {}, (data) => {
-              resolve(data);
-              // Keep live updates in cache
-              queryClient.setQueryData([endpoint, params ?? {}], data);
-            });
+            wsClient.subscribe(
+              endpoint,
+              params ?? (undefined as any),
+              (data) => {
+                resolve(data);
+                queryClient.setQueryData([endpoint, params ?? {}], data);
+              }
+            );
           }),
         staleTime: Infinity,
       });
