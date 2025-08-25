@@ -1,5 +1,5 @@
-import Fastify, { FastifyInstance } from "fastify";
-import type { AnyEndpoint, Endpoint } from "@packages/server";
+import Fastify from "fastify";
+import type { AnyEndpoint } from "@packages/server";
 import type z from "zod";
 
 /**
