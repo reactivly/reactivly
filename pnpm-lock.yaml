@@ -29,6 +29,9 @@ importers:
       '@apps/server':
         specifier: '*'
         version: link:../server
+      '@packages/client-react':
+        specifier: '*'
+        version: link:../../packages/client-react
       '@tanstack/react-query':
         specifier: ^5.85.5
         version: 5.85.5(react@19.1.1)
@@ -38,6 +41,9 @@ importers:
       react-dom:
         specifier: ^19.1.1
         version: 19.1.1(react@19.1.1)
+      zod:
+        specifier: ^4.0.17
+        version: 4.0.17
     devDependencies:
       '@eslint/js':
         specifier: ^9.33.0
@@ -78,6 +84,9 @@ importers:
       '@dotenvx/dotenvx':
         specifier: ^1.48.4
         version: 1.49.0
+      '@packages/server':
+        specifier: '*'
+        version: link:../../packages/server
       drizzle-orm:
         specifier: ^0.44.4
         version: 0.44.4(@types/pg@8.15.5)(pg@8.16.3)(postgres@3.4.7)
@@ -112,6 +121,114 @@ importers:
       nodemon:
         specifier: ^3.1.10
         version: 3.1.10
+      tsx:
+        specifier: ^4.20.4
+        version: 4.20.4
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.2
+
+  packages/client-react:
+    dependencies:
+      '@packages/client-ws':
+        specifier: '*'
+        version: link:../client-ws
+      '@tanstack/react-query':
+        specifier: ^5.85.5
+        version: 5.85.5(react@19.1.1)
+      react:
+        specifier: ^19.1.1
+        version: 19.1.1
+      react-dom:
+        specifier: ^19.1.1
+        version: 19.1.1(react@19.1.1)
+      zod:
+        specifier: ^4.0.17
+        version: 4.0.17
+    devDependencies:
+      '@eslint/js':
+        specifier: ^9.33.0
+        version: 9.33.0
+      '@types/react':
+        specifier: ^19.1.10
+        version: 19.1.10
+      '@types/react-dom':
+        specifier: ^19.1.7
+        version: 19.1.7(@types/react@19.1.10)
+      '@vitejs/plugin-react':
+        specifier: ^5.0.0
+        version: 5.0.1(vite@7.1.3)
+      eslint:
+        specifier: ^9.33.0
+        version: 9.33.0
+      eslint-plugin-react-hooks:
+        specifier: ^5.2.0
+        version: 5.2.0(eslint@9.33.0)
+      eslint-plugin-react-refresh:
+        specifier: ^0.4.20
+        version: 0.4.20(eslint@9.33.0)
+      globals:
+        specifier: ^16.3.0
+        version: 16.3.0
+      typescript:
+        specifier: ~5.8.3
+        version: 5.8.3
+      typescript-eslint:
+        specifier: ^8.39.1
+        version: 8.40.0(eslint@9.33.0)(typescript@5.8.3)
+      vite:
+        specifier: ^7.1.2
+        version: 7.1.3
+
+  packages/client-ws:
+    dependencies:
+      zod:
+        specifier: ^4.0.17
+        version: 4.0.17
+    devDependencies:
+      '@types/node':
+        specifier: ^24.3.0
+        version: 24.3.0
+      tsx:
+        specifier: ^4.20.4
+        version: 4.20.4
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.2
+
+  packages/server:
+    dependencies:
+      drizzle-orm:
+        specifier: ^0.44.4
+        version: 0.44.4(@types/pg@8.15.5)(pg@8.16.3)(postgres@3.4.7)
+      fastify:
+        specifier: ^5.5.0
+        version: 5.5.0
+      pg:
+        specifier: ^8.16.3
+        version: 8.16.3
+      postgres:
+        specifier: ^3.4.7
+        version: 3.4.7
+      ws:
+        specifier: ^8.18.3
+        version: 8.18.3
+      zod:
+        specifier: ^4.0.17
+        version: 4.0.17
+    devDependencies:
+      '@types/node':
+        specifier: ^24.3.0
+        version: 24.3.0
+      '@types/pg':
+        specifier: ^8.15.5
+        version: 8.15.5
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
+      drizzle-kit:
+        specifier: ^0.31.4
+        version: 0.31.4
       tsx:
         specifier: ^4.20.4
         version: 4.20.4

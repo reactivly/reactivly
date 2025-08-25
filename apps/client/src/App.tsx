@@ -1,4 +1,4 @@
-import { useEndpoints } from "./hooks/useEndpoint";
+import { useEndpoints } from "./hooks/useEndpoints";
 
 export function App() {
   const { data, isLoading } = useEndpoints().query("itemsList");
@@ -14,7 +14,7 @@ export function App() {
 }
 
 function OrdersByItem() {
-  const { data } = useEndpoints().query("ordersByItem", { filter: "someFilter" });
+  const { data } = useEndpoints().query("ordersByItem", {filter : "all"});
 
   return <pre>{JSON.stringify(data, null, 2)}</pre>;
 }

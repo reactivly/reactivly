@@ -1,15 +1,3 @@
-import {
-  useQuery,
-  useQueryClient,
-  type UseQueryResult,
-} from "@tanstack/react-query";
-import type {
-  EndpointParams,
-  EndpointResult,
-  Endpoints,
-} from "@apps/server";
-
-// wsClient.ts (singleton, no hooks)
 export class EndpointsWSClient {
   ws: WebSocket | null = null;
   subscriptions = new Map<string, Set<(data: any) => void>>();
@@ -63,32 +51,4 @@ export class EndpointsWSClient {
   }
 }
 
-const wsClient = new EndpointsWSClient();
-wsClient.init("ws://localhost:3001");
-
-export function useEndpoints() {
-  const queryClient = useQueryClient();
-
-  return {
-    query<K extends keyof Endpoints>(
-      endpoint: K,
-      params?: EndpointParams<K>
-    ): UseQueryResult<EndpointResult<K>> {
-      return useQuery<EndpointResult<K>>({
-        queryKey: [endpoint, params ?? {}],
-        queryFn: () =>
-          new Promise<EndpointResult<K>>((resolve) => {
-            wsClient.subscribe(
-              endpoint,
-              params ?? (undefined as any),
-              (data) => {
-                resolve(data);
-                queryClient.setQueryData([endpoint, params ?? {}], data);
-              }
-            );
-          }),
-        staleTime: Infinity,
-      });
-    },
-  };
-}
+export const wsClient = new EndpointsWSClient();

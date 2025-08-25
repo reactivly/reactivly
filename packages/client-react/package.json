@@ -1,5 +1,5 @@
 {
-  "name": "@apps/client",
+  "name": "@packages/client-react",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,9 +9,11 @@
     "lint": "eslint .",
     "preview": "vite preview"
   },
+  "exports": {
+    ".": "./index.ts"
+  },
   "dependencies": {
-    "@apps/server": "*",
-    "@packages/client-react": "*",
+    "@packages/client-ws": "*",
     "@tanstack/react-query": "^5.85.5",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",

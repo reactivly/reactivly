@@ -51,14 +51,14 @@ export function defineEndpoint(endpoint: any) {
   return endpoint;
 }
 
-export default async function defineEndpoints<
+export async function defineEndpoints<
   Endpoints extends Record<string, AnyEndpoint>
->(endpoints: Endpoints) {
+>(endpoints: Endpoints, options: { connectionString?: string }) {
   type EndpointName = keyof Endpoints;
 
   // --- Postgres client ---
   const pgClient = new pg.Client({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: options.connectionString,
   });
   await pgClient.connect();
 

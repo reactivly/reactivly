@@ -1,5 +1,5 @@
 {
-  "name": "@apps/server",
+  "name": "@packages/server",
   "version": "1.0.0",
   "description": "",
   "license": "ISC",
@@ -7,26 +7,20 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "dev": "dotenvx run -- nodemon",
-    "build": "tsc",
-    "start": "node dist/server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "exports": {
-    ".": "./src/server.ts"
+    ".": "./index.ts"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",
     "@types/pg": "^8.15.5",
     "@types/ws": "^8.18.1",
     "drizzle-kit": "^0.31.4",
-    "nodemon": "^3.1.10",
     "tsx": "^4.20.4",
     "typescript": "^5.9.2"
   },
   "dependencies": {
-    "@packages/server": "*",
-    "@dotenvx/dotenvx": "^1.48.4",
     "drizzle-orm": "^0.44.4",
     "fastify": "^5.5.0",
     "pg": "^8.16.3",
