@@ -6,7 +6,7 @@ import {
   defineEndpoints,
   type AnyEndpoint,
 } from "@packages/server";
-import { pgReactiveSource } from "@packages/server-pg";
+import { initPgReactive, pgReactiveSource } from "@packages/server-pg";
 import { items, orders } from "./db/schema.js";
 import z from "zod";
 
@@ -14,6 +14,8 @@ const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
   throw new Error("DATABASE_URL is not set");
 }
+
+await initPgReactive(process.env.DATABASE_URL!);
 
 // Endpoints (what clients subscribe to)
 // - `itemsList`: depends on `items` only
