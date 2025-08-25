@@ -67,7 +67,7 @@ export function defineEndpoint(endpoint: any) {
 
 export async function defineEndpoints<
   Endpoints extends Record<string, AnyEndpoint>
->(endpoints: Endpoints, options: { connectionString?: string }) {
+>(endpoints: Endpoints) {
   type EndpointName = keyof Endpoints;
 
   // Map each source ID -> endpoints that depend on it

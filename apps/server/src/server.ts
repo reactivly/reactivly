@@ -19,45 +19,42 @@ if (!connectionString) {
   throw new Error("DATABASE_URL is not set");
 }
 
-await initPgReactive(process.env.DATABASE_URL!);
+await initPgReactive(connectionString);
 
 // Endpoints (what clients subscribe to)
 // - `itemsList`: depends on `items` only
 // - `ordersByItem`: depends on `orders` only (example transform)
 // - `dashboard`: depends on BOTH `items` and `orders`
-const server = await defineEndpoints(
-  {
-    itemsList: defineEndpoint({
-      sources: [pgReactiveSource(items)],
-      fetch: () => db.select().from(items).orderBy(asc(items.id)),
+const server = await defineEndpoints({
+  itemsList: defineEndpoint({
+    sources: [pgReactiveSource(items)],
+    fetch: () => db.select().from(items).orderBy(asc(items.id)),
+  }),
+  ordersByItem: defineEndpoint({
+    sources: [pgReactiveSource(orders)],
+    input: z.object({
+      filter: z.string().optional(), // optional filter param
     }),
-    ordersByItem: defineEndpoint({
-      sources: [pgReactiveSource(orders)],
-      input: z.object({
-        filter: z.string().optional(), // optional filter param
-      }),
-      fetch: async (params) => {
-        const rows = await db.select().from(orders).orderBy(asc(orders.id));
-        // reduce into a map { itemId -> totalQuantity }
-        return rows.reduce<Record<number, number>>((acc, r) => {
-          acc[r.itemId!] = (acc[r.itemId!] ?? 0) + (r.quantity ?? 0);
-          return acc;
-        }, {});
-      },
-    }),
-    fileWatcher: defineEndpoint({
-      sources: [fsReactiveSource("./data.txt")],
-      fetch: async () => {
-        try {
-          return await fs.readFile("./data.txt", "utf-8");
-        } catch (err) {
-          return null;
-        }
-      },
-    }),
-  },
-  { connectionString }
-);
+    fetch: async (params) => {
+      const rows = await db.select().from(orders).orderBy(asc(orders.id));
+      // reduce into a map { itemId -> totalQuantity }
+      return rows.reduce<Record<number, number>>((acc, r) => {
+        acc[r.itemId!] = (acc[r.itemId!] ?? 0) + (r.quantity ?? 0);
+        return acc;
+      }, {});
+    },
+  }),
+  fileWatcher: defineEndpoint({
+    sources: [fsReactiveSource("./data.txt")],
+    fetch: async () => {
+      try {
+        return await fs.readFile("./data.txt", "utf-8");
+      } catch (err) {
+        return null;
+      }
+    },
+  }),
+});
 
 // Infer types
 export type Endpoints = typeof server.endpoints;
