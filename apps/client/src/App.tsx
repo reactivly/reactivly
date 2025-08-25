@@ -13,8 +13,14 @@ export function App() {
   );
 }
 
-function OrdersByItem() {
+export function OrdersByItem() {
   const { data } = useEndpoints().query("ordersByItem", {filter : "all"});
 
   return <pre>{JSON.stringify(data, null, 2)}</pre>;
+}
+
+export function FileWatcher() {
+  const { data } = useEndpoints().query("fileWatcher");
+
+  return <pre>{data}</pre>;
 }

@@ -27,6 +27,7 @@
   "dependencies": {
     "@packages/server": "*",
     "@packages/server-pg": "*",
+    "@packages/server-fs": "*",
     "@dotenvx/dotenvx": "^1.48.4",
     "drizzle-orm": "^0.44.4",
     "fastify": "^5.5.0",

@@ -87,6 +87,9 @@ importers:
       '@packages/server':
         specifier: '*'
         version: link:../../packages/server
+      '@packages/server-fs':
+        specifier: '*'
+        version: link:../../packages/server-fs
       '@packages/server-pg':
         specifier: '*'
         version: link:../../packages/server-pg
@@ -217,6 +220,22 @@ importers:
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
+      tsx:
+        specifier: ^4.20.4
+        version: 4.20.4
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.2
+
+  packages/server-fs:
+    dependencies:
+      '@packages/server':
+        specifier: '*'
+        version: link:../server
+      fs:
+        specifier: 0.0.1-security
+        version: 0.0.1-security
+    devDependencies:
       tsx:
         specifier: ^4.20.4
         version: 4.20.4
@@ -2251,6 +2270,10 @@ packages:
   /flatted@3.3.3:
     resolution: {integrity: sha512-GX+ysw4PBCz0PzosHDepZGANEuFCMLrnRTiEy9McGjmkCQYwRq4A/X786G/fjM/+OjsWSU1ZrY5qyARZmO/uwg==}
     dev: true
+
+  /fs@0.0.1-security:
+    resolution: {integrity: sha512-3XY9e1pP0CVEUCdj5BmfIZxRBTSDycnbqhIOGec9QYtmVH2fbLpj86CFWkrNOkt/Fvty4KZG5lTglL9j/gJ87w==}
+    dev: false
 
   /fsevents@2.3.3:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}

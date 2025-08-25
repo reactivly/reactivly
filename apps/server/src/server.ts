@@ -7,8 +7,12 @@ import {
   type AnyEndpoint,
 } from "@packages/server";
 import { initPgReactive, pgReactiveSource } from "@packages/server-pg";
+import { fsReactiveSource } from "@packages/server-fs";
 import { items, orders } from "./db/schema.js";
 import z from "zod";
+import fs from "fs/promises";
+
+console.log("CWD:", process.cwd());
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -39,6 +43,16 @@ const server = await defineEndpoints(
           acc[r.itemId!] = (acc[r.itemId!] ?? 0) + (r.quantity ?? 0);
           return acc;
         }, {});
+      },
+    }),
+    fileWatcher: defineEndpoint({
+      sources: [fsReactiveSource("./data.txt")],
+      fetch: async () => {
+        try {
+          return await fs.readFile("./data.txt", "utf-8");
+        } catch (err) {
+          return null;
+        }
       },
     }),
   },
