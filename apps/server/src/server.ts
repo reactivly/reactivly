@@ -43,19 +43,4 @@ const server = await defineEndpoints(
 );
 
 // Infer types
-// keys
 export type Endpoints = typeof server.endpoints;
-
-export type EndpointKeys = keyof Endpoints;
-
-export type EndpointParams<K extends EndpointKeys> = Endpoints[K] extends {
-  input: z.ZodTypeAny;
-}
-  ? z.infer<Endpoints[K]["input"]>
-  : undefined;
-
-export type EndpointResult<K extends EndpointKeys> = Endpoints[K] extends {
-  fetch: (...args: any) => infer R;
-}
-  ? Awaited<R>
-  : never;
