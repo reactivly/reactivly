@@ -1,72 +1,17 @@
 import { WebSocketServer, WebSocket } from "ws";
-import type z from "zod";
+import type { AnyEndpoint } from "./queries.js";
+import type { AnyMutation } from "./mutations.js";
+export { defineEndpoint } from "./queries.js"
+export { defineMutation } from "./mutations.js"
+export { type ReactiveSource } from "./reactivity.js"
 
-export interface ReactiveSource {
-  id: string; // Unique ID (e.g. "pg:tableName")
-  onChange(cb: () => void): void;
-}
+export type EndpointOrMutation =
+  | AnyEndpoint
+  | AnyMutation;
 
-export type EndpointWithInput<
-  Sources extends readonly ReactiveSource[],
-  Input extends z.ZodTypeAny,
-  Result
-> = {
-  sources: Sources;
-  input: Input;
-  fetch: (params: z.infer<Input>) => Promise<Result>;
-};
-
-export type EndpointWithoutInput<
-  Sources extends readonly ReactiveSource[],
-  Result
-> = {
-  sources: Sources;
-  fetch: () => Promise<Result>;
-  input?: undefined;
-};
-
-export type AnyEndpoint<
-  Sources extends readonly ReactiveSource[] = any[],
-  Result = any,
-  Params = any
-> =
-  | {
-      sources: Sources;
-      input: z.ZodTypeAny;
-      fetch: (params: Params) => Promise<Result> | Result;
-    }
-  | {
-      sources: Sources;
-      input?: undefined;
-      fetch: () => Promise<Result> | Result;
-    };
-
-export type Endpoint = AnyEndpoint;
-
-export function defineEndpoint<
-  Sources extends readonly ReactiveSource[],
-  Input extends z.ZodTypeAny,
-  Result
->(endpoint: {
-  sources: Sources;
-  input: Input;
-  fetch: (params: z.infer<Input>) => Promise<Result> | Result;
-}): typeof endpoint;
-
-export function defineEndpoint<
-  Sources extends readonly ReactiveSource[],
-  Result
->(endpoint: {
-  sources: Sources;
-  fetch: () => Promise<Result> | Result;
-}): typeof endpoint;
-
-export function defineEndpoint(endpoint: any) {
-  return endpoint;
-}
 
 export async function defineEndpoints<
-  Endpoints extends Record<string, AnyEndpoint>
+  Endpoints extends Record<string, EndpointOrMutation>
 >(endpoints: Endpoints) {
   type EndpointName = keyof Endpoints;
 
@@ -74,7 +19,9 @@ export async function defineEndpoints<
   const sourceToEndpoints = new Map<string, EndpointName[]>();
   for (const key in endpoints) {
     const ep = endpoints[key]!;
-    for (const src of ep.sources) {
+    // if ("mutation" in ep) return;
+    for (const src of (ep.sources ?? [])) {
+      // console.log(ep)
       const arr = sourceToEndpoints.get(src.id) ?? [];
       if (!arr.includes(key)) arr.push(key);
       sourceToEndpoints.set(src.id, arr);
@@ -112,7 +59,8 @@ export async function defineEndpoints<
         const msg = JSON.parse(raw.toString()) as
           | { type: "subscribe"; endpoint: EndpointName; params?: any }
           | { type: "unsubscribe"; endpoint: EndpointName }
-          | { type: "fetch"; endpoint: EndpointName; params?: any };
+          | { type: "fetch"; endpoint: EndpointName; params?: any }
+          | { type: "call"; endpoint: EndpointName; params?: any };
 
         const ep = endpoints[msg.endpoint];
         if (!ep) throw new Error(`Unknown endpoint: ${String(msg.endpoint)}`);
@@ -128,9 +76,16 @@ export async function defineEndpoints<
         } else if (msg.type === "unsubscribe") {
           endpointMap.delete(msg.endpoint);
 
-        } else if (msg.type === "fetch") {
+        } else if ("query" in ep && msg.type === "fetch") {
           const data = await ep.fetch(msg.params ?? null);
           ws.send(JSON.stringify({ type: "fetchResult", endpoint: msg.endpoint, params: msg.params ?? null, data }));
+        
+        } else if ("mutate" in ep && msg.type === "call") {
+          console.log("message received", msg.params)
+          const params = ep.input ? ep.input.parse(msg.params) : msg.params ?? null;
+          const result = await ep.mutate(params);
+          ws.send(JSON.stringify({ type: "mutationSuccess", endpoint: msg.endpoint, params, result }));
+          return;
         }
       } catch (err) {
         console.error("Invalid WS message:", err);

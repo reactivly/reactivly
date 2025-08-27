@@ -3,8 +3,8 @@ import { db } from "./db/client.js";
 import { asc, eq } from "drizzle-orm";
 import {
   defineEndpoint,
+  defineMutation,
   defineEndpoints,
-  type AnyEndpoint,
 } from "@packages/server";
 import { initPgReactive, pgReactiveSource } from "@packages/server-pg";
 import { fsReactiveSource } from "@packages/server-fs";
@@ -26,7 +26,7 @@ await initPgReactive(connectionString);
 // - `itemsList`: depends on `items` only
 // - `ordersByItem`: depends on `orders` only (example transform)
 // - `dashboard`: depends on BOTH `items` and `orders`
-const server = await defineEndpoints({
+const {endpoints} = await defineEndpoints({
   itemsList: defineEndpoint({
     sources: [pgReactiveSource(items)],
     fetch: () => db.select().from(items).orderBy(asc(items.id)),
@@ -55,10 +55,24 @@ const server = await defineEndpoints({
       }
     },
   }),
+  addItem: defineMutation({
+    input: z.object({ name: z.string() }),
+    mutate: async ({ name }) => {
+      console.log(name)
+      await db.insert(items).values({ name });
+      return { success: true };
+    },
+  }),
+  deleteItem: defineMutation({
+    input: z.object({ id: z.number() }),
+    mutate: async ({ id }) => {
+      await db.delete(items).where(eq(items.id, id));
+      return { success: true };
+    },
+  }),
 });
 
-createFastifyServer(server.endpoints, { port: 3000 });
-
+createFastifyServer(endpoints, { port: 3000 });
 
 // Infer types
-export type Endpoints = typeof server.endpoints;
+export type Endpoints = typeof endpoints;
