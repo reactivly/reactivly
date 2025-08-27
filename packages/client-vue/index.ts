@@ -1,6 +1,8 @@
 import {
+  useMutation,
   useQuery,
   useQueryClient,
+  type UseMutationReturnType,
   type UseQueryReturnType,
 } from "@tanstack/vue-query";
 import type z from "zod";
@@ -10,10 +12,8 @@ import { wsClient } from "@packages/client-ws";
 
 wsClient.init("ws://localhost:3001");
 
-export function useEndpoints<Endpoints>() {
+export function useEndpointsBase<Endpoints extends Record<string, { type: string }>>() {
   const queryClient = useQueryClient();
-
-  type EndpointKeys = keyof Endpoints;
 
   type EndpointParams<K extends EndpointKeys> = Endpoints[K] extends {
     input: z.ZodTypeAny;
@@ -27,8 +27,21 @@ export function useEndpoints<Endpoints>() {
     ? Awaited<R>
     : never;
 
+  type EndpointKeys = keyof Endpoints;
+
+  // Only queries
+  type QueryKeys = {
+    [K in EndpointKeys]: Endpoints[K]["type"] extends "query" ? K : never
+  }[EndpointKeys];
+
+  // Only mutations
+  type MutationKeys = {
+    [K in EndpointKeys]: Endpoints[K]["type"] extends "mutation" ? K : never
+  }[EndpointKeys];
+
   return {
-    query<K extends keyof Endpoints>(
+    // Queries (reactive subscriptions)
+    query<K extends QueryKeys>(
       endpoint: K,
       params?: EndpointParams<K>
     ): UseQueryReturnType<EndpointResult<K>, Error> {
@@ -46,6 +59,21 @@ export function useEndpoints<Endpoints>() {
             );
           }),
         staleTime: Infinity,
+      });
+    },
+
+    // Mutations (imperative actions)
+    mutation<K extends MutationKeys>(
+      endpoint: K
+    ): UseMutationReturnType<EndpointResult<K>, unknown, EndpointParams<K>, unknown> {
+      return useMutation<EndpointResult<K>, unknown, EndpointParams<K>>({
+        mutationFn: async (params: EndpointParams<K>) => {
+          return await wsClient.call(endpoint as string, params);
+        },
+        onSuccess: (data, params) => {
+          // Optimistic cache update
+          queryClient.setQueryData([endpoint, params ?? {}], data);
+        },
       });
     },
   };

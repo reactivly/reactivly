@@ -13,6 +13,7 @@ export async function initPgReactive(connectionString: string) {
   await sharedClient.connect();
 
   sharedClient.on("notification", (msg) => {
+    console.log(msg)
     const callbacks = channelListeners.get(msg.channel);
     if (callbacks) callbacks.forEach((cb) => cb());
   });
