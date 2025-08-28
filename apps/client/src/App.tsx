@@ -3,30 +3,40 @@ import { useEndpoints } from "./hooks/useEndpoints";
 
 export function App() {
   const { data, isLoading } = useEndpoints().query("itemsList");
-  const deleteItem = useEndpoints().mutation("deleteItem")
+  const deleteItem = useEndpoints().mutation("deleteItem");
 
   if (isLoading) return <div>Loading...</div>;
   return (
     <ul>
-      {data?.map(item => (
-        <li key={item.id}>{item.name} <button onClick={() => deleteItem.mutate({id: item.id})}>X</button></li>
+      {data?.map((item) => (
+        <li key={item.id}>
+          {item.name}{" "}
+          <button onClick={() => deleteItem.mutate({ id: item.id })}>X</button>
+        </li>
       ))}
     </ul>
   );
 }
 
 export function AddItem() {
-  const inputRef = useRef<HTMLInputElement>(null)
-  const addItem = useEndpoints().mutation("addItem")
+  const inputRef = useRef<HTMLInputElement>(null);
+  const addItem = useEndpoints().mutation("addItem");
 
   return (
-    <div>
-      <input ref={inputRef} />
-      <button onClick={() => { console.log(inputRef.current?.value); addItem.mutate({ name: inputRef.current?.value }) }}>
+    <form onSubmit={(e) => e.preventDefault()}>
+      <input ref={inputRef} disabled={addItem.isPending} style={{ backgroundColor: addItem.isPending ? 'red': 'unset'}} />
+      <button
+        onClick={async () => {
+          console.log(inputRef.current?.value);
+          if (!inputRef.current?.value) return;
+          await addItem.mutateAsync({ name: inputRef.current?.value });
+          inputRef.current.value = "";
+        }}
+      >
         Add Item
       </button>
-    </div>
-  )
+    </form>
+  );
 }
 
 export function OrdersByItem() {

@@ -8,6 +8,7 @@ export class EndpointsWSClient {
       this.ws = new WebSocket(url);
 
       this.ws.onmessage = (ev) => {
+        console.log(ev.data)
         const msg = JSON.parse(ev.data);
 
         if (msg.type === "dataUpdate") {
@@ -15,7 +16,7 @@ export class EndpointsWSClient {
           this.subscriptions.get(key)?.forEach((cb) => cb(msg.data));
         }
 
-        if (msg.type === "response" && msg.id) {
+        if (msg.type === "mutationSuccess" && msg.id) {
           const resolve = this.pendingCalls.get(msg.id);
           if (resolve) {
             resolve(msg.data);

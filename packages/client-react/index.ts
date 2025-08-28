@@ -67,7 +67,9 @@ export function useEndpointsBase<Endpoints extends Record<string, { type: string
     ): UseMutationResult<EndpointResult<K>, unknown, EndpointParams<K>> {
       return useMutation<EndpointResult<K>, unknown, EndpointParams<K>>({
         mutationFn: async (params: EndpointParams<K>) => {
-          return await wsClient.call(endpoint as string, params);
+          const res = await wsClient.call(endpoint as string, params);
+          console.log(res);
+          return res;
         },
         onSuccess: (data, params) => {
           // Optimistic cache update

@@ -21,6 +21,8 @@ const deleteItem = useEndpoints().mutation("deleteItem");
       </li>
     </ul>
   </template>
-  <input v-model="input" />
-  <button @click="addItem.mutate({ name: input })">Add item</button>
+  <form @submit.prevent>
+    <input v-model="input" :style="addItem.isPending.value ? 'background-color: red' : ''" />
+    <button @click="addItem.mutateAsync({ name: input }); input = ''">Add item</button>
+  </form>
 </template>

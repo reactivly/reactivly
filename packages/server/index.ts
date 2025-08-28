@@ -60,7 +60,7 @@ export async function defineEndpoints<
           | { type: "subscribe"; endpoint: EndpointName; params?: any }
           | { type: "unsubscribe"; endpoint: EndpointName }
           | { type: "fetch"; endpoint: EndpointName; params?: any }
-          | { type: "call"; endpoint: EndpointName; params?: any };
+          | { type: "call"; endpoint: EndpointName; params?: any; id: string };
 
         const ep = endpoints[msg.endpoint];
         if (!ep) throw new Error(`Unknown endpoint: ${String(msg.endpoint)}`);
@@ -84,7 +84,7 @@ export async function defineEndpoints<
           console.log("message received", msg.params)
           const params = ep.input ? ep.input.parse(msg.params) : msg.params ?? null;
           const result = await ep.mutate(params);
-          ws.send(JSON.stringify({ type: "mutationSuccess", endpoint: msg.endpoint, params, result }));
+          ws.send(JSON.stringify({ type: "mutationSuccess", endpoint: msg.endpoint, id: msg.id, result }));
           return;
         }
       } catch (err) {
