@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { useEndpoints } from '../composables/useEndpoints';
+import { endpointClient } from '../composables/endpointClient';
 
-const { data, isLoading } = useEndpoints().query('fileWatcher');
+const { data, isLoading } = endpointClient.query('fileWatcher');
 </script>
 
 <template>

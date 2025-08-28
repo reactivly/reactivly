@@ -1,9 +1,9 @@
 import { useRef } from "react";
-import { useEndpoints } from "./hooks/useEndpoints";
+import { endpointClient } from "./hooks/endpointClient";
 
 export function App() {
-  const { data, isLoading } = useEndpoints().query("itemsList");
-  const deleteItem = useEndpoints().mutation("deleteItem");
+  const { data, isLoading } = endpointClient.query("itemsList");
+  const deleteItem = endpointClient.mutation("deleteItem");
 
   if (isLoading) return <div>Loading...</div>;
   return (
@@ -20,7 +20,7 @@ export function App() {
 
 export function AddItem() {
   const inputRef = useRef<HTMLInputElement>(null);
-  const addItem = useEndpoints().mutation("addItem");
+  const addItem = endpointClient.mutation("addItem");
 
   return (
     <form onSubmit={(e) => e.preventDefault()}>
@@ -40,13 +40,13 @@ export function AddItem() {
 }
 
 export function OrdersByItem() {
-  const { data } = useEndpoints().query("ordersByItem", { filter: "all" });
+  const { data } = endpointClient.query("ordersByItem", { filter: "all" });
 
   return <pre>{JSON.stringify(data, null, 2)}</pre>;
 }
 
 export function FileWatcher() {
-  const { data } = useEndpoints().query("fileWatcher");
+  const { data } = endpointClient.query("fileWatcher");
 
   return <pre>{data}</pre>;
 }

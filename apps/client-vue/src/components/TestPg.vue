@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import { useEndpoints } from "../composables/useEndpoints";
+import { endpointClient } from "../composables/endpointClient";
 
 const input = ref("");
 
-const { data, isLoading } = useEndpoints().query("itemsList");
-const addItem = useEndpoints().mutation("addItem");
-const deleteItem = useEndpoints().mutation("deleteItem");
+const { data, isLoading } = endpointClient.query("itemsList");
+const addItem = endpointClient.mutation("addItem");
+const deleteItem = endpointClient.mutation("deleteItem");
 </script>
 
 <template>

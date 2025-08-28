@@ -11,9 +11,9 @@ import { wsClient } from "@packages/client-ws";
 // Initialize the singleton WS client
 wsClient.init("ws://localhost:3001");
 
-export function useEndpointsBase<Endpoints extends Record<string, { type: string }>>() {
-  const queryClient = useQueryClient();
-
+export function createEndpoints<
+  Endpoints extends Record<string, { type: string }>,
+>() {
   type EndpointParams<K extends EndpointKeys> = Endpoints[K] extends {
     input: z.ZodTypeAny;
   }
@@ -26,16 +26,16 @@ export function useEndpointsBase<Endpoints extends Record<string, { type: string
     ? Awaited<R>
     : never;
 
-    type EndpointKeys = keyof Endpoints;
+  type EndpointKeys = keyof Endpoints;
 
   // Only queries
   type QueryKeys = {
-    [K in EndpointKeys]: Endpoints[K]["type"] extends "query" ? K : never
+    [K in EndpointKeys]: Endpoints[K]["type"] extends "query" ? K : never;
   }[EndpointKeys];
 
   // Only mutations
   type MutationKeys = {
-    [K in EndpointKeys]: Endpoints[K]["type"] extends "mutation" ? K : never
+    [K in EndpointKeys]: Endpoints[K]["type"] extends "mutation" ? K : never;
   }[EndpointKeys];
 
   return {
@@ -44,6 +44,8 @@ export function useEndpointsBase<Endpoints extends Record<string, { type: string
       endpoint: K,
       params?: EndpointParams<K>
     ): UseQueryResult<EndpointResult<K>> {
+      const queryClient = useQueryClient();
+
       return useQuery<EndpointResult<K>>({
         queryKey: [endpoint, params ?? {}],
         queryFn: () =>
@@ -65,6 +67,8 @@ export function useEndpointsBase<Endpoints extends Record<string, { type: string
     mutation<K extends MutationKeys>(
       endpoint: K
     ): UseMutationResult<EndpointResult<K>, unknown, EndpointParams<K>> {
+      const queryClient = useQueryClient();
+
       return useMutation<EndpointResult<K>, unknown, EndpointParams<K>>({
         mutationFn: async (params: EndpointParams<K>) => {
           const res = await wsClient.call(endpoint as string, params);

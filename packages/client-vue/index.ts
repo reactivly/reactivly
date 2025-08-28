@@ -12,9 +12,9 @@ import { wsClient } from "@packages/client-ws";
 
 wsClient.init("ws://localhost:3001");
 
-export function useEndpointsBase<Endpoints extends Record<string, { type: string }>>() {
-  const queryClient = useQueryClient();
-
+export function createEndpoints<
+  Endpoints extends Record<string, { type: string }>,
+>() {
   type EndpointParams<K extends EndpointKeys> = Endpoints[K] extends {
     input: z.ZodTypeAny;
   }
@@ -31,12 +31,12 @@ export function useEndpointsBase<Endpoints extends Record<string, { type: string
 
   // Only queries
   type QueryKeys = {
-    [K in EndpointKeys]: Endpoints[K]["type"] extends "query" ? K : never
+    [K in EndpointKeys]: Endpoints[K]["type"] extends "query" ? K : never;
   }[EndpointKeys];
 
   // Only mutations
   type MutationKeys = {
-    [K in EndpointKeys]: Endpoints[K]["type"] extends "mutation" ? K : never
+    [K in EndpointKeys]: Endpoints[K]["type"] extends "mutation" ? K : never;
   }[EndpointKeys];
 
   return {
@@ -45,6 +45,8 @@ export function useEndpointsBase<Endpoints extends Record<string, { type: string
       endpoint: K,
       params?: EndpointParams<K>
     ): UseQueryReturnType<EndpointResult<K>, Error> {
+      const queryClient = useQueryClient();
+
       return useQuery<EndpointResult<K>>({
         queryKey: [endpoint, params ?? {}],
         queryFn: () =>
@@ -65,7 +67,14 @@ export function useEndpointsBase<Endpoints extends Record<string, { type: string
     // Mutations (imperative actions)
     mutation<K extends MutationKeys>(
       endpoint: K
-    ): UseMutationReturnType<EndpointResult<K>, unknown, EndpointParams<K>, unknown> {
+    ): UseMutationReturnType<
+      EndpointResult<K>,
+      unknown,
+      EndpointParams<K>,
+      unknown
+    > {
+      const queryClient = useQueryClient();
+
       return useMutation<EndpointResult<K>, unknown, EndpointParams<K>>({
         mutationFn: async (params: EndpointParams<K>) => {
           return await wsClient.call(endpoint as string, params);
