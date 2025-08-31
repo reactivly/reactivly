@@ -1,6 +1,6 @@
-# Building Real-Time Apps with `@myorg`
+# Building Real-Time Apps with `@reactivly`
 
-Most modern applications should be **reactive by default**—when the data changes in the database, all connected clients should update instantly. Instead of wiring together multiple tools, the `@myorg/server` and `@myorg/client` packages provide a unified system for **type-safe queries, mutations, and live updates** out of the box.
+Most modern applications should be **reactive by default**—when the data changes in the database, all connected clients should update instantly. Instead of wiring together multiple tools, the `@reactivly/server` and `@reactivly/client` packages provide a unified system for **type-safe queries, mutations, and live updates** out of the box.
 
 ## 1. Defining Reactive Sources
 
@@ -18,7 +18,7 @@ export const users = pgTable("users", {
 
 ```ts
 // server/sources.ts
-import { pgReactiveSource } from "@myorg/server-db";
+import { pgReactiveSource } from "@reactivly/server-db";
 import { users } from "../db/schema";
 import { db } from "../db/client"; // drizzle instance
 
@@ -36,7 +36,7 @@ Endpoints describe how clients can fetch or mutate data. They can be **queries**
 
 ```ts
 // server/endpoints.ts
-import { defineEndpoint, defineMutation } from "@myorg/server";
+import { defineEndpoint, defineMutation } from "@reactivly/server";
 import { z } from "zod";
 import { userSource } from "./sources";
 import { db } from "../db/client";
@@ -70,7 +70,7 @@ The server can be bootstrapped with `createWsServer`, which exposes endpoints ov
 
 ```ts
 // server/index.ts
-import { createWsServer } from "@myorg/server";
+import { createWsServer } from "@reactivly/server";
 import { listUsers, addUser } from "./endpoints";
 
 const { endpoints } = await createWsServer({ 
@@ -87,11 +87,11 @@ That’s it — the backend is live with reactive endpoints.
 
 ## 4. Using Endpoints in the Frontend
 
-On the frontend, `@myorg/client` integrates with **TanStack Query** and provides a familiar API:
+On the frontend, `@reactivly/client` integrates with **TanStack Query** and provides a familiar API:
 
 ```ts
 // frontend/useUsers.ts
-import { useEndpoints } from "@myorg/client";
+import { useEndpoints } from "@reactivly/client";
 import type { Endpoints } from "../../server/index" // import from your own server codebase (a monrepo is well-suited for this)
 
 const client = createEndpoints<Endpoints>({

@@ -1,5 +1,5 @@
 import { watch } from "fs";
-import type { ReactiveSource } from "@packages/server";
+import type { ReactiveSource } from "@reactivly/server";
 
 export function fsReactiveSource(path: string): ReactiveSource {
   return {

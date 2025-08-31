@@ -25,10 +25,10 @@
     "typescript": "^5.9.2"
   },
   "dependencies": {
-    "@packages/server": "*",
-    "@packages/server-pg": "*",
-    "@packages/server-fs": "*",
-    "@packages/server-fastify": "*",
+    "@reactivly/server": "*",
+    "@reactivly/server-pg": "*",
+    "@reactivly/server-fs": "*",
+    "@reactivly/server-fastify": "*",
     "@dotenvx/dotenvx": "^1.48.4",
     "drizzle-orm": "^0.44.4",
     "fastify": "^5.5.0",

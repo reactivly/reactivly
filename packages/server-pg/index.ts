@@ -1,7 +1,7 @@
 import pg from "pg";
 import { getTableName } from "drizzle-orm";
 import type { AnyPgTable } from "drizzle-orm/pg-core";
-import type { ReactiveSource } from "@packages/server";
+import type { ReactiveSource } from "@reactivly/server";
 
 let sharedClient: pg.Client | null = null;
 const channelListeners = new Map<string, Set<() => void>>();

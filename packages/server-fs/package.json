@@ -1,5 +1,5 @@
 {
-  "name": "@packages/server-fs",
+  "name": "@reactivly/server-fs",
   "version": "1.0.0",
   "description": "",
   "license": "ISC",
@@ -17,7 +17,7 @@
     "typescript": "^5.9.2"
   },
   "dependencies": {
-    "@packages/server": "*",
+    "@reactivly/server": "*",
     "fs": "0.0.1-security"
   }
 }

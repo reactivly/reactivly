@@ -1,5 +1,5 @@
 {
-  "name": "@packages/server-fastify",
+  "name": "@reactivly/server-fastify",
   "version": "1.0.0",
   "description": "",
   "license": "ISC",
@@ -18,7 +18,7 @@
     "typescript": "^5.9.2"
   },
   "dependencies": {
-    "@packages/server": "*",
+    "@reactivly/server": "*",
     "fastify": "^5.5.0",
     "zod": "^4.0.17"
   }

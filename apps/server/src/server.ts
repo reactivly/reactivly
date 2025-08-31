@@ -5,13 +5,13 @@ import {
   defineEndpoint,
   defineMutation,
   defineEndpoints,
-} from "@packages/server";
-import { initPgReactive, pgReactiveSource } from "@packages/server-pg";
-import { fsReactiveSource } from "@packages/server-fs";
+} from "@reactivly/server";
+import { initPgReactive, pgReactiveSource } from "@reactivly/server-pg";
+import { fsReactiveSource } from "@reactivly/server-fs";
 import { items, orders } from "./db/schema.js";
 import z from "zod";
 import fs from "fs/promises";
-import { createFastifyServer } from "@packages/server-fastify";
+import { createFastifyServer } from "@reactivly/server-fastify";
 
 console.log("CWD:", process.cwd());
 

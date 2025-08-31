@@ -1,5 +1,5 @@
 {
-  "name": "@packages/server-pg",
+  "name": "@reactivly/server-pg",
   "version": "1.0.0",
   "description": "",
   "license": "ISC",
@@ -13,7 +13,7 @@
     ".": "./index.ts"
   },
   "devDependencies": {
-    "@packages/server": "*",
+    "@reactivly/server": "*",
     "@types/pg": "^8.15.5",
     "drizzle-kit": "^0.31.4",
     "tsx": "^4.20.4",
