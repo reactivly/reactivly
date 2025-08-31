@@ -19,7 +19,9 @@
     "typescript": "^5.9.2"
   },
   "dependencies": {
-    "ws": "^8.18.3",
+    "ws": "^8.18.3"
+  },
+  "peerDependencies": {
     "zod": "^4.0.17"
   }
 }

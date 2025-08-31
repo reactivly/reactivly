@@ -17,7 +17,9 @@
     "typescript": "^5.9.2"
   },
   "dependencies": {
-    "@reactivly/server": "*",
     "fs": "0.0.1-security"
+  },
+  "peerDependencies": {
+    "@reactivly/server": "*"
   }
 }

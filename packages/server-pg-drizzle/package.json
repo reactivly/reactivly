@@ -12,14 +12,14 @@
   "exports": {
     ".": "./src/index.ts"
   },
-  "devDependencies": {
+  "peerDependencies": {
     "@reactivly/server": "*",
     "@reactivly/server-pg": "*",
+    "drizzle-orm": "^0.44.4"
+  },
+  "devDependencies": {
     "drizzle-kit": "^0.31.4",
     "tsx": "^4.20.4",
     "typescript": "^5.9.2"
-  },
-  "dependencies": {
-    "drizzle-orm": "^0.44.4"
   }
 }

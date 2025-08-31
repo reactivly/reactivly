@@ -17,7 +17,7 @@
     "tsx": "^4.20.4",
     "typescript": "^5.9.2"
   },
-  "dependencies": {
+  "peerDependencies": {
     "zod": "^4.0.17"
   }
 }

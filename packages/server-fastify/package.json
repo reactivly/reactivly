@@ -17,9 +17,11 @@
     "tsx": "^4.20.4",
     "typescript": "^5.9.2"
   },
-  "dependencies": {
+  "peerDependencies": {
     "@reactivly/server": "*",
-    "fastify": "^5.5.0",
     "zod": "^4.0.17"
+  },
+  "dependencies": {
+    "fastify": "^5.5.0"
   }
 }

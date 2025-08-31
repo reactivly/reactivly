@@ -6,13 +6,12 @@ import {
   defineMutation,
   defineEndpoints,
 } from "@reactivly/server";
-import { initPgReactive } from "@reactivly/server-pg";
+import { initDrizzlePgReactive } from "@reactivly/server-pg-drizzle";
 import { fsReactiveSource } from "@reactivly/server-fs";
 import { items, orders } from "./db/schema.js";
 import z from "zod";
 import fs from "fs/promises";
 import { createFastifyServer } from "@reactivly/server-fastify";
-import { sources } from "./db/sources.js";
 
 console.log("CWD:", process.cwd());
 
@@ -21,7 +20,13 @@ if (!connectionString) {
   throw new Error("DATABASE_URL is not set");
 }
 
-await initPgReactive(connectionString);
+const sources = await initDrizzlePgReactive(
+  {
+    items,
+    orders,
+  },
+  { connectionString }
+);
 
 // Endpoints (what clients subscribe to)
 // - `itemsList`: depends on `items` only

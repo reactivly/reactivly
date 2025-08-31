@@ -369,16 +369,16 @@ importers:
 
   packages/server-pg-drizzle:
     dependencies:
-      drizzle-orm:
-        specifier: ^0.44.4
-        version: 0.44.4(@types/pg@8.15.5)(pg@8.16.3)(postgres@3.4.7)
-    devDependencies:
       '@reactivly/server':
         specifier: '*'
         version: link:../server
       '@reactivly/server-pg':
         specifier: '*'
         version: link:../server-pg
+      drizzle-orm:
+        specifier: ^0.44.4
+        version: 0.44.4(@types/pg@8.15.5)(pg@8.16.3)(postgres@3.4.7)
+    devDependencies:
       drizzle-kit:
         specifier: ^0.31.4
         version: 0.31.4
