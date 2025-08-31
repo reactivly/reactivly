@@ -1,6 +1,4 @@
 import pg from "pg";
-import { getTableName } from "drizzle-orm";
-import type { AnyPgTable } from "drizzle-orm/pg-core";
 import type { ReactiveSource } from "@reactivly/server";
 
 let sharedClient: pg.Client | null = null;
@@ -21,12 +19,11 @@ export async function initPgReactive(connectionString: string) {
   return sharedClient;
 }
 
-export function pgReactiveSource(table: AnyPgTable): ReactiveSource {
+export function pgReactiveSource(tableName: string): ReactiveSource {
   if (!sharedClient) {
     throw new Error("pgReactiveSource: call initPgReactive() first");
   }
 
-  const tableName = getTableName(table);
   const channel = `${tableName}_channel`;
 
   return {

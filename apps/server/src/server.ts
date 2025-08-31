@@ -6,12 +6,13 @@ import {
   defineMutation,
   defineEndpoints,
 } from "@reactivly/server";
-import { initPgReactive, pgReactiveSource } from "@reactivly/server-pg";
+import { initPgReactive } from "@reactivly/server-pg";
 import { fsReactiveSource } from "@reactivly/server-fs";
 import { items, orders } from "./db/schema.js";
 import z from "zod";
 import fs from "fs/promises";
 import { createFastifyServer } from "@reactivly/server-fastify";
+import { sources } from "./db/sources.js";
 
 console.log("CWD:", process.cwd());
 
@@ -26,13 +27,13 @@ await initPgReactive(connectionString);
 // - `itemsList`: depends on `items` only
 // - `ordersByItem`: depends on `orders` only (example transform)
 // - `dashboard`: depends on BOTH `items` and `orders`
-const {endpoints} = await defineEndpoints({
+const { endpoints } = await defineEndpoints({
   itemsList: defineEndpoint({
-    sources: [pgReactiveSource(items)],
+    sources: [sources.items],
     fetch: () => db.select().from(items).orderBy(asc(items.id)),
   }),
   ordersByItem: defineEndpoint({
-    sources: [pgReactiveSource(orders)],
+    sources: [sources.orders],
     input: z.object({
       filter: z.string().optional(), // optional filter param
     }),
@@ -58,7 +59,7 @@ const {endpoints} = await defineEndpoints({
   addItem: defineMutation({
     input: z.object({ name: z.string() }),
     mutate: async ({ name }) => {
-      console.log(name)
+      console.log(name);
       await db.insert(items).values({ name });
       return { success: true };
     },

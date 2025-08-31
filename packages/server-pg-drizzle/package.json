@@ -1,5 +1,5 @@
 {
-  "name": "@reactivly/server-pg",
+  "name": "@reactivly/server-pg-drizzle",
   "version": "1.0.0",
   "description": "",
   "license": "ISC",
@@ -14,12 +14,12 @@
   },
   "devDependencies": {
     "@reactivly/server": "*",
-    "@types/pg": "^8.15.5",
+    "@reactivly/server-pg": "*",
+    "drizzle-kit": "^0.31.4",
     "tsx": "^4.20.4",
     "typescript": "^5.9.2"
   },
   "dependencies": {
-    "pg": "^8.16.3",
-    "postgres": "^3.4.7"
+    "drizzle-orm": "^0.44.4"
   }
 }

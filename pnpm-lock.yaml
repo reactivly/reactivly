@@ -24,7 +24,7 @@ importers:
         specifier: 5.7.3
         version: 5.7.3
 
-  apps/client:
+  apps/client-react:
     dependencies:
       '@apps/server':
         specifier: '*'
@@ -139,6 +139,9 @@ importers:
       '@reactivly/server-pg':
         specifier: '*'
         version: link:../../packages/server-pg
+      '@reactivly/server-pg-drizzle':
+        specifier: '*'
+        version: link:../../packages/server-pg-drizzle
       drizzle-orm:
         specifier: ^0.44.4
         version: 0.44.4(@types/pg@8.15.5)(pg@8.16.3)(postgres@3.4.7)
@@ -344,18 +347,12 @@ importers:
 
   packages/server-pg:
     dependencies:
-      drizzle-orm:
-        specifier: ^0.44.4
-        version: 0.44.4(@types/pg@8.15.5)(pg@8.16.3)(postgres@3.4.7)
       pg:
         specifier: ^8.16.3
         version: 8.16.3
       postgres:
         specifier: ^3.4.7
         version: 3.4.7
-      zod:
-        specifier: ^4.0.17
-        version: 4.0.17
     devDependencies:
       '@reactivly/server':
         specifier: '*'
@@ -363,6 +360,25 @@ importers:
       '@types/pg':
         specifier: ^8.15.5
         version: 8.15.5
+      tsx:
+        specifier: ^4.20.4
+        version: 4.20.4
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.2
+
+  packages/server-pg-drizzle:
+    dependencies:
+      drizzle-orm:
+        specifier: ^0.44.4
+        version: 0.44.4(@types/pg@8.15.5)(pg@8.16.3)(postgres@3.4.7)
+    devDependencies:
+      '@reactivly/server':
+        specifier: '*'
+        version: link:../server
+      '@reactivly/server-pg':
+        specifier: '*'
+        version: link:../server-pg
       drizzle-kit:
         specifier: ^0.31.4
         version: 0.31.4

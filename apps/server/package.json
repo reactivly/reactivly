@@ -27,6 +27,7 @@
   "dependencies": {
     "@reactivly/server": "*",
     "@reactivly/server-pg": "*",
+    "@reactivly/server-pg-drizzle": "*",
     "@reactivly/server-fs": "*",
     "@reactivly/server-fastify": "*",
     "@dotenvx/dotenvx": "^1.48.4",
