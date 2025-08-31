@@ -29,7 +29,7 @@ importers:
       '@apps/server':
         specifier: '*'
         version: link:../server
-      '@packages/client-react':
+      '@reactivly/client-react':
         specifier: '*'
         version: link:../../packages/client-react
       '@tanstack/react-query':
@@ -84,7 +84,7 @@ importers:
       '@apps/server':
         specifier: '*'
         version: link:../server
-      '@packages/client-vue':
+      '@reactivly/client-vue':
         specifier: '*'
         version: link:../../packages/client-vue
       '@tanstack/vue-query':
@@ -127,16 +127,16 @@ importers:
       '@dotenvx/dotenvx':
         specifier: ^1.48.4
         version: 1.49.0
-      '@packages/server':
+      '@reactivly/server':
         specifier: '*'
         version: link:../../packages/server
-      '@packages/server-fastify':
+      '@reactivly/server-fastify':
         specifier: '*'
         version: link:../../packages/server-fastify
-      '@packages/server-fs':
+      '@reactivly/server-fs':
         specifier: '*'
         version: link:../../packages/server-fs
-      '@packages/server-pg':
+      '@reactivly/server-pg':
         specifier: '*'
         version: link:../../packages/server-pg
       drizzle-orm:
@@ -182,7 +182,7 @@ importers:
 
   packages/client-react:
     dependencies:
-      '@packages/client-ws':
+      '@reactivly/client-ws':
         specifier: '*'
         version: link:../client-ws
       '@tanstack/react-query':
@@ -234,7 +234,7 @@ importers:
 
   packages/client-vue:
     dependencies:
-      '@packages/client-ws':
+      '@reactivly/client-ws':
         specifier: '*'
         version: link:../client-ws
       '@tanstack/vue-query':
@@ -306,7 +306,7 @@ importers:
 
   packages/server-fastify:
     dependencies:
-      '@packages/server':
+      '@reactivly/server':
         specifier: '*'
         version: link:../server
       fastify:
@@ -328,7 +328,7 @@ importers:
 
   packages/server-fs:
     dependencies:
-      '@packages/server':
+      '@reactivly/server':
         specifier: '*'
         version: link:../server
       fs:
@@ -357,7 +357,7 @@ importers:
         specifier: ^4.0.17
         version: 4.0.17
     devDependencies:
-      '@packages/server':
+      '@reactivly/server':
         specifier: '*'
         version: link:../server
       '@types/pg':

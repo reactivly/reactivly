@@ -1,5 +1,5 @@
 import Fastify from "fastify";
-import type { EndpointOrMutation } from "@packages/server";
+import type { EndpointOrMutation } from "@reactivly/server";
 
 /**
  * Create a Fastify server from reactive endpoints

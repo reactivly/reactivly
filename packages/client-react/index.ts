@@ -6,7 +6,7 @@ import {
   type UseMutationResult,
 } from "@tanstack/react-query";
 import type z from "zod";
-import { wsClient } from "@packages/client-ws";
+import { wsClient } from "@reactivly/client-ws";
 
 // Initialize the singleton WS client
 wsClient.init("ws://localhost:3001");

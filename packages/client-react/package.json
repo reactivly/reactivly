@@ -1,5 +1,5 @@
 {
-  "name": "@packages/client-react",
+  "name": "@reactivly/client-react",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -13,7 +13,7 @@
     ".": "./index.ts"
   },
   "dependencies": {
-    "@packages/client-ws": "*",
+    "@reactivly/client-ws": "*",
     "@tanstack/react-query": "^5.85.5",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
