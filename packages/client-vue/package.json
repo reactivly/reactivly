@@ -10,7 +10,7 @@
     "preview": "vite preview"
   },
   "exports": {
-    ".": "./index.ts"
+    ".": "./src/index.ts"
   },
   "dependencies": {
     "@reactivly/client-ws": "*",
