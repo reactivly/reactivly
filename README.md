@@ -1,8 +1,15 @@
 # Building Real-Time Apps with `@reactivly`
 
-Most modern applications should be **reactive by default**—when the data changes in the database, all connected clients should update instantly. Instead of wiring together multiple tools, the `@reactivly/server` and `@reactivly/client` packages provide a unified system for **type-safe queries, mutations, and live updates** out of the box.
+Most modern applications should be **reactive by default**—when the data changes in the database, all connected clients should update instantly. Instead of wiring together multiple tools, the `@reactivly` packages provide a unified system for **type-safe queries, mutations, and live updates** out of the box.
 
-## 1. Defining Reactive Sources
+## On the server
+
+Install needed packages:
+```cli
+pnpm i @reactivly/server @reactivly/server-db-drizzle @reactivly/server-fs
+```
+
+### 1. Defining Reactive Sources
 
 A **source** represents a stream of updates. With PostgreSQL, we use the `pgReactiveSource` utility, which listens to table changes and emits them.
 
@@ -18,19 +25,24 @@ export const users = pgTable("users", {
 
 ```ts
 // server/sources.ts
-import { pgReactiveSource } from "@reactivly/server-db";
+import { initDrizzlePgReactive } from "@reactivly/server-db-drizzle";
 import { users } from "../db/schema";
 import { db } from "../db/client"; // drizzle instance
 
-// A reactive source for the `users` table
-export const userSource = pgReactiveSource(db, users);
+export const getSources = () => initDrizzlePgReactive(
+  {
+    users,
+    orders,
+  },
+  { connectionString }
+);
 ```
 
 Now `userSource` emits updates whenever the `users` table changes (via `LISTEN/NOTIFY` under the hood).
 
 ---
 
-## 2. Defining Endpoints
+### 2. Defining Endpoints
 
 Endpoints describe how clients can fetch or mutate data. They can be **queries** (read) or **mutations** (write).
 
@@ -38,13 +50,15 @@ Endpoints describe how clients can fetch or mutate data. They can be **queries**
 // server/endpoints.ts
 import { defineEndpoint, defineMutation } from "@reactivly/server";
 import { z } from "zod";
-import { userSource } from "./sources";
+import { getSources } from "./sources";
 import { db } from "../db/client";
 import { users } from "../db/schema";
 
+const sources = await getSources();
+
 // Query: stream all users
 export const listUsers = defineEndpoint({
-  sources: [userSource],
+  sources: [sources.users],
   fetch: async () => {
     return await db.select().from(users);
   },
@@ -64,7 +78,7 @@ export const addUser = defineMutation({
 
 ---
 
-## 3. Starting the Server
+### 3. Starting the Server
 
 The server can be bootstrapped with `createWsServer`, which exposes endpoints over **WebSockets**.
 
@@ -85,13 +99,21 @@ That’s it — the backend is live with reactive endpoints.
 
 ---
 
-## 4. Using Endpoints in the Frontend
+## On the client
 
-On the frontend, `@reactivly/client` integrates with **TanStack Query** and provides a familiar API:
+On the frontend, `@reactivly/client` integrates with **TanStack Query** and provides a familiar API.
+
+First install the package:
+
+```cli
+pnpm i @reactivly/client-react
+```
+
+For vue, replace with `@reactivly/client-vue`
 
 ```ts
 // frontend/useUsers.ts
-import { useEndpoints } from "@reactivly/client";
+import { useEndpoints } from "@reactivly/client-react";
 import type { Endpoints } from "../../server/index" // import from your own server codebase (a monrepo is well-suited for this)
 
 const client = createEndpoints<Endpoints>({
@@ -136,7 +158,7 @@ export function UserList() {
 
 ---
 
-## 5. Why This Matters
+Why This Matters
 
 * **Reactive by design**: Queries tied to sources always stay fresh.
 * **Type-safe end-to-end**: Zod inputs + drizzle schemas ensure correctness.
