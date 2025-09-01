@@ -2,6 +2,9 @@
 
 Most modern applications should be **reactive by default**—when the data changes in the database, all connected clients should update instantly. Instead of wiring together multiple tools, the `@reactivly` packages provide a unified system for **type-safe queries, mutations, and live updates** out of the box.
 
+![instant updates](reactivly.gif "Reactivly")
+
+
 ## On the server
 
 Install needed packages:
