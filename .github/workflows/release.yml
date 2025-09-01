@@ -1,0 +1,32 @@
+name: Publish Packages
+
+on:
+  release:
+    types: [published] # runs when a GitHub release is created
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          registry-url: 'https://registry.npmjs.org'
+
+      - run: corepack enable
+
+      # install all dependencies
+      - run: pnpm install --frozen-lockfile
+
+      # Build all packages in the workspace
+      # - name: Build packages
+      #   run: pnpm -r build --filter "./packages/*"
+
+      # Publish each package individually
+      - name: Publish packages
+        run: pnpm -r publish --filter "./packages/*" --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
