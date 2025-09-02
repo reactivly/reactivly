@@ -5,6 +5,7 @@ import {
   defineEndpoint,
   defineMutation,
   defineEndpoints,
+  createSessionRS,
 } from "@reactivly/server";
 import { initDrizzlePgReactive } from "@reactivly/server-pg-drizzle";
 import { fsReactiveSource } from "@reactivly/server-fs";
@@ -12,7 +13,6 @@ import { items, orders } from "./db/schema.js";
 import z from "zod";
 import fs from "fs/promises";
 import { createFastifyServer } from "@reactivly/server-fastify";
-import { log } from "console";
 
 console.log("CWD:", process.cwd());
 
@@ -33,80 +33,78 @@ const sources = await initDrizzlePgReactive(
 // - `itemsList`: depends on `items` only
 // - `ordersByItem`: depends on `orders` only (example transform)
 // - `dashboard`: depends on BOTH `items` and `orders`
-const { endpoints } = await defineEndpoints({
-  itemsList: defineEndpoint({
-    sources: [sources.items],
-    fetch: () => db.select().from(items).orderBy(asc(items.id)),
-  }),
-  ordersByItem: defineEndpoint({
-    sources: [sources.orders],
-    input: z.object({
-      filter: z.string().optional(), // optional filter param
+const { endpoints } = defineEndpoints(() => {
+  const sessionUser = createSessionRS<User | null>(null);
+
+  return {
+    login: defineMutation({
+      input: z.object({ username: z.string(), password: z.string() }),
+      mutate: async ({ ctx, params: { username, password } }) => {
+        if (username === "test" && password === "123") {
+          sessionUser.value = {
+            user: { id: 1, name: "Test User" },
+            token: "fake-jwt-123",
+          };
+          console.log("User logged in:", sessionUser.value);
+          return { success: true };
+        }
+        return { success: false };
+      },
     }),
-    fetch: async ({ ctx, params }) => {
-      const rows = await db.select().from(orders).orderBy(asc(orders.id));
-      // reduce into a map { itemId -> totalQuantity }
-      return rows.reduce<Record<number, number>>((acc, r) => {
-        acc[r.itemId!] = (acc[r.itemId!] ?? 0) + (r.quantity ?? 0);
-        return acc;
-      }, {});
-    },
-  }),
-  fileWatcher: defineEndpoint({
-    sources: [fsReactiveSource("./data.txt")],
-    fetch: async () => {
-      try {
-        return await fs.readFile("./data.txt", "utf-8");
-      } catch (err) {
-        return null;
-      }
-    },
-  }),
-  addItem: defineMutation({
-    input: z.object({ name: z.string() }),
-    mutate: async ({ ctx, params: { name } }) => {
-      console.log(name);
-      await db.insert(items).values({ name });
-      return { success: true };
-    },
-  }),
-  deleteItem: defineMutation({
-    input: z.object({ id: z.number() }),
-    mutate: async ({ ctx, params: { id } }) => {
-      await db.delete(items).where(eq(items.id, id));
-      return { success: true };
-    },
-  }),
-  login: defineMutation({
-    input: z.object({ username: z.string(), password: z.string() }),
-    mutate: async ({ ctx, params: { username, password } }) => {
-      if (username === "test" && password === "123") {
-        const session = {
-          user: { id: 1, name: "Test User" },
-          token: "fake-jwt-123",
-        };
-
-        // Update WebSocket context session
-        ctx.ws.session = session;
-
-        return { success: true, session };
-      }
-      return { success: false };
-    },
-  }),
-  logout: defineMutation({
-    mutate: async ({ ctx }) => {
-      // Invalidate session on server if needed
-      return { success: true };
-    },
-  }),
-  whoami: defineEndpoint({
-    fetch: () => {
-      return { message: "Hello from server" };
-    },
-    sources: [],
-    input: z.undefined(),
-  }),
+    logout: defineMutation({
+      mutate: async ({ ctx }) => {
+        sessionUser.value = null;
+        return { success: true };
+      },
+    }),
+    whoami: defineEndpoint({
+      fetch: ({ ctx }) => sessionUser.value,
+      sources: [sessionUser],
+    }),
+    itemsList: defineEndpoint({
+      sources: [sources.items],
+      fetch: () => db.select().from(items).orderBy(asc(items.id)),
+    }),
+    ordersByItem: defineEndpoint({
+      sources: [sources.orders],
+      input: z.object({
+        filter: z.string().optional(), // optional filter param
+      }),
+      fetch: async ({ ctx, params }) => {
+        const rows = await db.select().from(orders).orderBy(asc(orders.id));
+        // reduce into a map { itemId -> totalQuantity }
+        return rows.reduce<Record<number, number>>((acc, r) => {
+          acc[r.itemId!] = (acc[r.itemId!] ?? 0) + (r.quantity ?? 0);
+          return acc;
+        }, {});
+      },
+    }),
+    fileWatcher: defineEndpoint({
+      sources: [fsReactiveSource("./data.txt")],
+      fetch: async () => {
+        try {
+          return await fs.readFile("./data.txt", "utf-8");
+        } catch (err) {
+          return null;
+        }
+      },
+    }),
+    addItem: defineMutation({
+      input: z.object({ name: z.string() }),
+      mutate: async ({ ctx, params: { name } }) => {
+        console.log(name);
+        await db.insert(items).values({ name });
+        return { success: true };
+      },
+    }),
+    deleteItem: defineMutation({
+      input: z.object({ id: z.number() }),
+      mutate: async ({ ctx, params: { id } }) => {
+        await db.delete(items).where(eq(items.id, id));
+        return { success: true };
+      },
+    }),
+  };
 });
 
 createFastifyServer(endpoints, { port: 3000 });

@@ -1,18 +1,20 @@
 <template>
-  <div>{{ session }}</div>
-  <button @click="doLogin">Login</button>
+  <template v-if="me.data.value">
+    <div>{{ me.data.value }}</div>
+    <button @click="logout.mutateAsync()">Logout</button>
+  </template>
+  <template v-else>
+    <button @click="doLogin">Login</button>
+  </template>
 </template>
 
 <script setup lang="ts">
-import { endpointClient } from '../composables/endpointClient';
+import { endpointClient } from "../composables/endpointClient";
 
-const session = endpointClient.useSession(); // reactive ref
-
+const me = endpointClient.query("whoami");
 const login = endpointClient.mutation("login");
+const logout = endpointClient.mutation("logout");
 
 // Call mutation
-const doLogin = () => login.mutateAsync({ username: "test", password: "123" }).then(() => {
-  console.log("JWT after login:", session.value.token);
-  console.log("User info:", session.value.user);
-});
+const doLogin = () => login.mutateAsync({ username: "test", password: "123" });
 </script>

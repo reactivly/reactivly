@@ -1,6 +1,37 @@
 import { useRef } from "react";
 import { endpointClient } from "./hooks/endpointClient";
 
+export function Login() {
+  const me = endpointClient.query("whoami");
+  const login = endpointClient.mutation("login");
+  const logout = endpointClient.mutation("logout");
+
+  return (
+    <div>
+      {me.data ? (
+        <>
+          <pre>{JSON.stringify(me.data, null, 2)}</pre>
+          <button
+            onClick={async () => {
+              await logout.mutateAsync();
+            }}
+          >
+            Logout
+          </button>
+        </>
+      ) : (
+        <button
+          onClick={async () => {
+            await login.mutateAsync({ username: "test", password: "123" });
+          }}
+        >
+          Login
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function App() {
   const { data, isLoading } = endpointClient.query("itemsList");
   const deleteItem = endpointClient.mutation("deleteItem");
@@ -24,7 +55,7 @@ export function AddItem() {
 
   return (
     <form onSubmit={(e) => e.preventDefault()}>
-      <input ref={inputRef} disabled={addItem.isPending} style={{ backgroundColor: addItem.isPending ? 'red': 'unset'}} />
+      <input ref={inputRef} disabled={addItem.isPending} style={{ backgroundColor: addItem.isPending ? 'red' : 'unset' }} />
       <button
         onClick={async () => {
           console.log(inputRef.current?.value);
