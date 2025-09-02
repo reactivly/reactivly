@@ -13,12 +13,14 @@
     ".": "./src/index.ts"
   },
   "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.3.0",
     "@types/ws": "^8.18.1",
     "tsx": "^4.20.4",
     "typescript": "^5.9.2"
   },
   "dependencies": {
+    "jsonwebtoken": "^9.0.2",
     "ws": "^8.18.3"
   },
   "peerDependencies": {

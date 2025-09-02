@@ -2,7 +2,16 @@ import type z from "zod";
 import type { ReactiveSource } from "./reactivity.js";
 
 // ==========================
-// Single set of types (final endpoint types)
+// Context type
+// ==========================
+export type EndpointContext = {
+  session?: any;
+  ws?: any;
+  [key: string]: any;
+};
+
+// ==========================
+// Final endpoint types
 // ==========================
 export type EndpointWithInput<
   Sources extends readonly ReactiveSource[],
@@ -11,7 +20,7 @@ export type EndpointWithInput<
 > = {
   sources: Sources;
   input: Input;
-  fetch: (params: z.infer<Input>) => Promise<Result> | Result;
+  fetch: (args: { ctx: EndpointContext; params: z.infer<Input> }) => Promise<Result> | Result;
   type: "query";
 };
 
@@ -20,7 +29,7 @@ export type EndpointWithoutInput<
   Result
 > = {
   sources: Sources;
-  fetch: () => Promise<Result> | Result;
+  fetch: (args: { ctx: EndpointContext }) => Promise<Result> | Result;
   type: "query";
 };
 
@@ -38,7 +47,7 @@ type EndpointInput<
 > = {
   sources: Sources;
   input: Input;
-  fetch: (params: z.infer<Input>) => Promise<Result> | Result;
+  fetch: (args: { ctx: EndpointContext; params: z.infer<Input> }) => Promise<Result> | Result;
 };
 
 type EndpointInputWithoutInput<
@@ -46,11 +55,11 @@ type EndpointInputWithoutInput<
   Result
 > = {
   sources: Sources;
-  fetch: () => Promise<Result> | Result;
+  fetch: (args: { ctx: EndpointContext }) => Promise<Result> | Result;
 };
 
 // ==========================
-// Simple overloads
+// Overloads
 // ==========================
 export function defineEndpoint<
   Sources extends readonly ReactiveSource[],
@@ -63,6 +72,9 @@ export function defineEndpoint<
   Result
 >(endpoint: EndpointInputWithoutInput<Sources, Result>): EndpointWithoutInput<Sources, Result>;
 
+// ==========================
+// Implementation
+// ==========================
 export function defineEndpoint(endpoint: any) {
   return { ...endpoint, type: "query" as const };
 }

@@ -12,6 +12,7 @@ import { items, orders } from "./db/schema.js";
 import z from "zod";
 import fs from "fs/promises";
 import { createFastifyServer } from "@reactivly/server-fastify";
+import { log } from "console";
 
 console.log("CWD:", process.cwd());
 
@@ -42,7 +43,7 @@ const { endpoints } = await defineEndpoints({
     input: z.object({
       filter: z.string().optional(), // optional filter param
     }),
-    fetch: async (params) => {
+    fetch: async ({ ctx, params }) => {
       const rows = await db.select().from(orders).orderBy(asc(orders.id));
       // reduce into a map { itemId -> totalQuantity }
       return rows.reduce<Record<number, number>>((acc, r) => {
@@ -63,7 +64,7 @@ const { endpoints } = await defineEndpoints({
   }),
   addItem: defineMutation({
     input: z.object({ name: z.string() }),
-    mutate: async ({ name }) => {
+    mutate: async ({ ctx, params: { name } }) => {
       console.log(name);
       await db.insert(items).values({ name });
       return { success: true };
@@ -71,10 +72,40 @@ const { endpoints } = await defineEndpoints({
   }),
   deleteItem: defineMutation({
     input: z.object({ id: z.number() }),
-    mutate: async ({ id }) => {
+    mutate: async ({ ctx, params: { id } }) => {
       await db.delete(items).where(eq(items.id, id));
       return { success: true };
     },
+  }),
+  login: defineMutation({
+    input: z.object({ username: z.string(), password: z.string() }),
+    mutate: async ({ ctx, params: { username, password } }) => {
+      if (username === "test" && password === "123") {
+        const session = {
+          user: { id: 1, name: "Test User" },
+          token: "fake-jwt-123",
+        };
+
+        // Update WebSocket context session
+        ctx.ws.session = session;
+
+        return { success: true, session };
+      }
+      return { success: false };
+    },
+  }),
+  logout: defineMutation({
+    mutate: async ({ ctx }) => {
+      // Invalidate session on server if needed
+      return { success: true };
+    },
+  }),
+  whoami: defineEndpoint({
+    fetch: () => {
+      return { message: "Hello from server" };
+    },
+    sources: [],
+    input: z.undefined(),
   }),
 });
 
