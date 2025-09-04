@@ -21,6 +21,17 @@ Reactivly lets you declare **queries** and **mutations** that automatically upda
 npm install @reactivly/server
 ```
 
+Create a WebSocket server:
+
+```ts
+import { createReactiveWSServer, query, mutation } from "@reactivly/server";
+
+const { actions: endpoints } = createReactiveWSServer(() => {
+  return {}
+}, 3001);
+
+export type Endpoints = typeof endpoints; // Make Endpoints types available
+```
 
 # 📖 Concepts
 
@@ -37,12 +48,14 @@ It declares its input (with Zod), runs code, and returns a result.
 import { query } from "@reactivly/server";
 import z from "zod";
 
-const itemsList = query(z.void(), async () => {
-  return [
-    { id: 1, name: "First" },
-    { id: 2, name: "Second" },
-  ];
-});
+const { actions: endpoints } = createReactiveWSServer(() => {
+  return {
+    itemsList = query(z.void(), async () => [
+        { id: 1, name: "First" },
+        { id: 2, name: "Second" },
+    ]),
+  }
+}, 3001);
 ```
 
 * **Input** is validated with `zod`.
@@ -57,14 +70,18 @@ Unlike queries, it does **not** re-run or stream results.
 import { mutation } from "@reactivly/server";
 import z from "zod";
 
-const addItem = mutation(
-  z.object({ name: z.string() }),
-  async ({ name }) => {
-    console.log("Inserting:", name);
-    // Example DB insert…
-    return { success: true };
+const { actions: endpoints } = createReactiveWSServer(() => {
+  return {
+    addItem: mutation(
+      z.object({ name: z.string() }),
+      async ({ name }) => {
+        console.log("Inserting:", name);
+        // Example DB insert…
+        return { success: true };
+      }
+    ),
   }
-);
+}, 3001);
 ```
 
 ## 3. Stores
@@ -78,14 +95,17 @@ Shared between all connections.
 ```ts
 import { globalStore } from "@reactivly/server";
 
-const counter = globalStore(0);
+const { actions: endpoints } = createReactiveWSServer(() => {
+  const counter = globalStore(0);
 
-const incrementCounter = mutation(
-  z.object({ step: z.number().optional() }),
-  ({ step = 1 }) => counter.mutate(n => n + step)
-);
-
-const currentCount = query(z.void(), () => counter.get());
+  return {
+    incrementCounter: mutation(
+      z.object({ step: z.number().optional() }),
+      ({ step = 1 }) => counter.mutate(n => n + step)
+    ),
+    currentCount: query(z.void(), () => counter.get()),
+  }
+}, 3001);
 ```
 
 ### Session Store
@@ -97,14 +117,17 @@ import { sessionStore, query, mutation } from "@reactivly/server";
 
 interface User { username: string }
 
-const sessionUser = sessionStore<User | null>(null);
+const { actions: endpoints } = createReactiveWSServer(() => {
+  const sessionUser = sessionStore<User | null>(null);
 
-const login = mutation(
-  z.object({ username: z.string() }),
-  ({ username }) => sessionUser.set({ username })
-);
-
-const me = query(z.void(), () => sessionUser.get());
+  return {
+    login: mutation(
+      z.object({ username: z.string() }),
+      ({ username }) => sessionUser.set({ username })
+    ),
+    me: query(z.void(), () => sessionUser.get()),
+  }
+}, 3001);
 ```
 
 ## 4. Notifiers
@@ -126,12 +149,18 @@ import { db } from "./db/client";
 import { items } from "./db/schema";
 import { asc } from "drizzle-orm";
 
-const pgNotifier = createPgNotifier({ connectionString: process.env.DATABASE_URL! });
+const { actions: endpoints } = createReactiveWSServer(() => {
+  const pgNotifier = createPgNotifier({ 
+    connectionString: process.env.DATABASE_URL! 
+  });
 
-const itemsList = query(z.void(), async () => {
-  const items$ = pgNotifier.proxy(items);
-  return db.select().from(items$).orderBy(asc(items.id));
-});
+  return {
+    itemsList: query(z.void(), async () => {
+      const items$ = pgNotifier.proxy(items);
+      return db.select().from(items$).orderBy(asc(items.id));
+    }),
+  }
+}, 3001);
 ```
 
 ### Filesystem
@@ -144,50 +173,26 @@ npm install @reactivly/server-fs
 import { createFsNotifier } from "@reactivly/server-fs";
 import fs from "fs/promises";
 
-const fsNotifier = createFsNotifier();
+const { actions: endpoints } = createReactiveWSServer(() => {
+  const fsNotifier = createFsNotifier();
 
-const fileContent = query(z.void(), async () => {
-  try {
-    return await fs.readFile(fsNotifier.proxy("./data.txt"), "utf-8");
-  } catch {
-    return null;
+  return {
+    fileContent: query(z.void(), async () => {
+      try {
+        return await fs.readFile(fsNotifier.proxy("./data.txt"), "utf-8");
+      } catch {
+        return null;
+      }
+    }),
   }
-});
+}, 3001);
 ```
 
 ## 5. Derived Notifiers
 
 You can combine multiple notifiers into one.
 
-```ts
-import { derivedNotifier } from "@reactivly/server";
-
-const combined = derivedNotifier([pgNotifier.proxy(items), sessionUser]);
-
-const dashboard = query(z.void(), async () => {
-  combined; // registers dependency
-  return { stats: "…" };
-});
-```
-
-## 6. Server Setup
-
-Finally, wire your endpoints into a WebSocket server:
-
-```ts
-import { createReactiveWSServer, query, mutation } from "@reactivly/server";
-
-const { actions: endpoints } = createReactiveWSServer(() => ({
-  itemsList,
-  addItem,
-  currentCount,
-  me,
-}), 3001);
-
-export type Endpoints = typeof endpoints;
-```
-
-### Start a Fastify server (optional HTTP bridge)
+## 6. Start a Fastify server (optional HTTP bridge)
 
 ```bash
 npm install @reactivly/server-fastify
@@ -209,7 +214,8 @@ Reactivly has multiple client SDKs depending on your frontend stack.
 
 * **Vanilla Client** – plain JS/TS, framework-agnostic.
 * **Vue Client** – tight integration with Vue 3 reactivity (`ref`, `computed`, Suspense).
-* *(React / Svelte clients could follow the same pattern later).*
+* **React Client** - tight integration with React.
+* *(Angular / Svelte / Solid clients could follow the same pattern later).*
 
 ## 7.1 Vanilla Client
 
