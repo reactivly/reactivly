@@ -322,8 +322,6 @@ const deleteItem = endpointClient.mutation("deleteItem");
 </template>
 ```
 
-Perfect 👍 we can extend the README with a **React client section** alongside the Vue one. Here’s how it would look with your inspiration code formatted into examples:
-
 ## 7.3 React Client
 
 Install:
