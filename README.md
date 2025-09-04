@@ -48,8 +48,6 @@ const itemsList = query(z.void(), async () => {
 * **Input** is validated with `zod`.
 * **Result** is pushed live to clients whenever the query re-runs.
 
----
-
 ## 2. Mutations
 
 A **mutation** is a one-off operation.
@@ -68,8 +66,6 @@ const addItem = mutation(
   }
 );
 ```
-
----
 
 ## 3. Stores
 
@@ -110,8 +106,6 @@ const login = mutation(
 
 const me = query(z.void(), () => sessionUser.get());
 ```
-
----
 
 ## 4. Notifiers
 
@@ -161,8 +155,6 @@ const fileContent = query(z.void(), async () => {
 });
 ```
 
----
-
 ## 5. Derived Notifiers
 
 You can combine multiple notifiers into one.
@@ -177,8 +169,6 @@ const dashboard = query(z.void(), async () => {
   return { stats: "…" };
 });
 ```
-
----
 
 ## 6. Server Setup
 
@@ -221,8 +211,6 @@ Reactivly has multiple client SDKs depending on your frontend stack.
 * **Vue Client** – tight integration with Vue 3 reactivity (`ref`, `computed`, Suspense).
 * *(React / Svelte clients could follow the same pattern later).*
 
----
-
 ## 7.1 Vanilla Client
 
 ```ts
@@ -239,8 +227,6 @@ client.subscribe("itemsList", {}, (items) => {
 // Run a mutation
 await client.mutate("addItem", { name: "Another item" });
 ```
-
----
 
 ## 7.2 Vue Client
 
@@ -262,8 +248,6 @@ export const endpointClient = createEndpoints<Endpoints>({
 });
 ```
 
----
-
 ### Queries
 
 ```vue
@@ -278,8 +262,6 @@ const { data, isLoading } = endpointClient.query("fileWatcher");
   <div v-else>{{ data }}</div>
 </template>
 ```
-
----
 
 ### Mutations + Session Handling
 
@@ -304,8 +286,6 @@ const doLogin = () => login.mutateAsync({ username: "test", password: "123" });
   </div>
 </template>
 ```
-
----
 
 ### CRUD Example
 
@@ -344,8 +324,6 @@ const deleteItem = endpointClient.mutation("deleteItem");
 
 Perfect 👍 we can extend the README with a **React client section** alongside the Vue one. Here’s how it would look with your inspiration code formatted into examples:
 
----
-
 ## 7.3 React Client
 
 Install:
@@ -365,8 +343,6 @@ export const endpointClient = createEndpoints<Endpoints>({
   url: "ws://localhost:3001",
 });
 ```
-
----
 
 ### Authentication Example
 
@@ -399,8 +375,6 @@ export function Login() {
 }
 ```
 
----
-
 ### Queries + Mutations
 
 ```tsx
@@ -424,8 +398,6 @@ export function App() {
   );
 }
 ```
-
----
 
 ### Add Item Form
 
@@ -458,8 +430,6 @@ export function AddItem() {
 }
 ```
 
----
-
 ### Parameterized Query
 
 ```tsx
@@ -471,8 +441,6 @@ export function OrdersByItem() {
   return <pre>{JSON.stringify(data, null, 2)}</pre>;
 }
 ```
-
----
 
 ### File Watcher Example
 
