@@ -172,7 +172,7 @@ export function query<TSchema extends z.ZodTypeAny, TResult>(
   schema: TSchema,
   fn: (args: z.infer<TSchema>) => Promise<TResult> | TResult
 ) {
-  return (args: unknown): LiveQueryResult<TResult> => {
+  return (args: z.infer<TSchema>): LiveQueryResult<TResult> => {
     return {
       subscribe: (notify: Subscriber<TResult>) => {
         let active = true;
@@ -227,7 +227,7 @@ export function mutation<TSchema extends z.ZodTypeAny, TResult = void>(
   schema: TSchema,
   fn: (args: z.infer<TSchema>) => Promise<TResult> | TResult
 ) {
-  return async (args: unknown): Promise<TResult> => {
+  return async (args: z.infer<TSchema>): Promise<TResult> => {
     const parsed = schema.parse(args);
     return await fn(parsed);
   };
