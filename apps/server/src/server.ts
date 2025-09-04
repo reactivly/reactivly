@@ -1,8 +1,8 @@
 // server.ts
 import { db } from "./db/client.js";
 import { asc, eq, gt } from "drizzle-orm";
-import { createPgNotifierProxy } from "@reactivly/server-pg-drizzle";
-import { fsReactiveSource } from "@reactivly/server-fs";
+import { createPgNotifier } from "@reactivly/server-pg-drizzle";
+import { createFsNotifier } from "@reactivly/server-fs";
 import { items, orders } from "./db/schema.js";
 import z from "zod";
 import fs from "fs/promises";
@@ -40,8 +40,8 @@ const { actions: endpoints } = createReactiveWSServer(() => {
 
   // const myPendingOrders = derivedNotifier([orders, sessionUser]);
 
-  const pgNotifier = createPgNotifierProxy({ connectionString: process.env.DATABASE_URL! });
-
+  const pgNotifier = createPgNotifier({ connectionString: process.env.DATABASE_URL! });
+  const fsNotifier = createFsNotifier();
 
   return {
     getMyOrders: query(z.object({ userId: z.number() }), async ({ userId }) => {
@@ -76,7 +76,7 @@ const { actions: endpoints } = createReactiveWSServer(() => {
 
     fileWatcher: query(z.undefined(), async () => {
       try {
-        return await fs.readFile("./data.txt", "utf-8");
+        return await fs.readFile(fsNotifier.proxy("./data.txt"), "utf-8");
       } catch (err) {
         return null;
       }

@@ -3,7 +3,7 @@ import pg from "pg";
 import type { AnyPgTable, PgTableWithColumns } from "drizzle-orm/pg-core";
 import { getTableName, Table } from "drizzle-orm";
 
-export function createPgNotifierProxy({ connectionString }: { connectionString: string }) {
+export function createPgNotifier({ connectionString }: { connectionString: string }) {
   const client = new pg.Client({ connectionString });
   const sources = new Map<PgTableWithColumns<any>, NotifierReactiveSource>();
   const channels = new Map<PgTableWithColumns<any>, string>();
