@@ -1,16 +1,37 @@
-# Building Real-Time Apps with `@reactivly`
+# Reactivly
 
-Most modern applications should be **reactive by default**—when the data changes in the database, all connected clients should update instantly. Instead of wiring together multiple tools, the `@reactivly` packages provide a unified system for **type-safe queries, mutations, and live updates** out of the box.
+> ⚡ Build type-safe **live APIs** over WebSockets, powered by declarative reactive queries.
+
+Reactivly lets you declare **queries** and **mutations** that automatically update when underlying data changes. Instead of wiring cache and invalidation logic manually, you just declare your dependencies (via notifiers) — and Reactivly re-runs the query when needed.
 
 ![instant updates](reactivly.gif "Reactivly")
 
+## ✨ Features
 
-# Reactivly Concepts
+* 🔄 **Live queries** — clients subscribe once, always get fresh data.
+* 🚀 **Reactive notifiers** — tie queries to DB tables, files, or custom sources.
+* 👤 **Session & global state** — managed automatically across WebSocket connections.
+* 🧾 **Type-safe** — Zod + TypeScript inference across server and client.
+* 🔌 **Extensible** — easily add your own notifiers.
+
+
+## 🚀 Getting Started
+
+```bash
+npm install @reactivly/server
+```
+
+
+# 📖 Concepts
 
 ## 1. Queries
 
 A **query** is a function the client can subscribe to.
 It declares its input (with Zod), runs code, and returns a result.
+
+* Always executed fresh on new subscription.
+* Automatically re-run when one of their notifiers fires.
+
 
 ```ts
 import { query } from "@reactivly/server";
@@ -97,7 +118,13 @@ const me = query(z.void(), () => sessionUser.get());
 Notifiers tie queries to **external data sources**.
 When the source changes, queries that depend on it re-run.
 
+> You can build your own by implementing the notifier contract.
+
 ### Postgres + Drizzle
+
+```bash
+npm install @@reactivly/server-pg-drizzle
+```
 
 ```ts
 import { createPgNotifier } from "@reactivly/server-pg-drizzle";
@@ -114,6 +141,10 @@ const itemsList = query(z.void(), async () => {
 ```
 
 ### Filesystem
+
+```bash
+npm install @reactivly/server-fs
+```
 
 ```ts
 import { createFsNotifier } from "@reactivly/server-fs";
@@ -165,6 +196,20 @@ const { actions: endpoints } = createReactiveWSServer(() => ({
 
 export type Endpoints = typeof endpoints;
 ```
+
+### Start a Fastify server (optional HTTP bridge)
+
+```bash
+npm install @reactivly/server-fastify
+```
+
+```ts
+import { createFastifyServer } from "@reactivly/server-fastify";
+import { endpoints } from "./server";
+
+createFastifyServer(endpoints, { port: 3000 });
+```
+
 
 
 ## 7. Client Usage
