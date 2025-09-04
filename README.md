@@ -50,7 +50,7 @@ import z from "zod";
 
 const { actions: endpoints } = createReactiveWSServer(() => {
   return {
-    itemsList = query(z.void(), async () => [
+    itemsList: query(z.void(), async () => [
         { id: 1, name: "First" },
         { id: 2, name: "Second" },
     ]),
