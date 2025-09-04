@@ -279,7 +279,7 @@ export function createReactiveWSServer<Endpoints extends Record<string, QueryOrM
 
         if (msg.type === "mutation") {
           const result = await fn(msg.params);
-          ws.send(JSON.stringify({ type: "mutationResult", name: msg.name, data: result }));
+          ws.send(JSON.stringify({ type: "mutationResult", name: msg.name, data: result, requestId: msg.requestId }) );
         }
       } catch (err) {
         ws.send(JSON.stringify({ type: "error", name: msg.name, error: String(err) }));
