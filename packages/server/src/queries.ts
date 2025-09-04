@@ -4,11 +4,11 @@ import type { ReactiveSource } from "./reactivity.js";
 // ==========================
 // Context type
 // ==========================
-export type EndpointContext = {
-  session?: any;
-  ws?: any;
-  [key: string]: any;
-};
+// export type EndpointContext = {
+//   session?: any;
+//   ws?: any;
+//   [key: string]: any;
+// };
 
 // ==========================
 // Final endpoint types
@@ -20,7 +20,7 @@ export type EndpointWithInput<
 > = {
   sources: Sources;
   input: Input;
-  fetch: (args: { ctx: EndpointContext; params: z.infer<Input> }) => Promise<Result> | Result;
+  fetch: (args: { params: z.infer<Input> }) => Promise<Result> | Result;
   type: "query";
 };
 
@@ -29,7 +29,7 @@ export type EndpointWithoutInput<
   Result
 > = {
   sources: Sources;
-  fetch: (args: { ctx: EndpointContext }) => Promise<Result> | Result;
+  fetch: () => Promise<Result> | Result;
   type: "query";
 };
 
@@ -47,7 +47,7 @@ type EndpointInput<
 > = {
   sources: Sources;
   input: Input;
-  fetch: (args: { ctx: EndpointContext; params: z.infer<Input> }) => Promise<Result> | Result;
+  fetch: (args: { params: z.infer<Input> }) => Promise<Result> | Result;
 };
 
 type EndpointInputWithoutInput<
@@ -55,7 +55,7 @@ type EndpointInputWithoutInput<
   Result
 > = {
   sources: Sources;
-  fetch: (args: { ctx: EndpointContext }) => Promise<Result> | Result;
+  fetch: () => Promise<Result> | Result;
 };
 
 // ==========================

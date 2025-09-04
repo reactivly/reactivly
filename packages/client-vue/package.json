@@ -12,7 +12,8 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@reactivly/client-ws": "*"
+    "@reactivly/client-ws": "*",
+    "@reactivly/core": "*"
   },
   "peerDependencies": {
     "@tanstack/vue-query": "^5.85.5",

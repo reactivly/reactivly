@@ -1,111 +1,299 @@
-import { WebSocketServer, WebSocket } from "ws";
-import type { AnyEndpoint } from "./queries.js";
-import type { AnyMutation } from "./mutations.js";
-export { defineEndpoint } from "./queries.js";
-export { defineMutation } from "./mutations.js";
-export { type ReactiveSource } from "./reactivity.js";
+import WebSocket, { WebSocketServer } from "ws";
+import { Subject } from "rxjs";
+import { z } from "zod";
+import type {
+  ClientSubscription,
+  LiveQueryResult,
+  MutationFn,
+  NotifierReactiveSource,
+  ReactiveSource,
+  StoreReactiveSource,
+  Subscriber,
+  QueryFn
+} from "@reactivly/core";
 
-export type EndpointOrMutation = AnyEndpoint | AnyMutation;
+export type { LiveQueryResult, NotifierReactiveSource };
 
-export type EndpointContext = {
-  sessionRS?: any; // reactive source per client
-  ws: WebSocket;
-};
+// ---------------- Dependency Tracking ----------------
+let currentDeps: NotifierReactiveSource[] | null = null;
 
-// Session-RS factory (per WS)
-let _nextSessionRSId = 1;
-export function createSessionRS<T>(initial: T) {
-  const id = `sessionRS-${_nextSessionRSId++}`;
-  let value = initial;
-  const listeners = new Set<(v: T) => void>();
+export function collectDependency(dep: NotifierReactiveSource) {
+  if (currentDeps) currentDeps.push(dep);
+}
+
+async function withDependencyCollectionAsync<T>(
+  fn: () => Promise<T> | T
+): Promise<{ result: T; deps: NotifierReactiveSource[] }> {
+  const deps: NotifierReactiveSource[] = [];
+  currentDeps = deps;
+  try {
+    const result = await fn();
+    return { result, deps };
+  } finally {
+    currentDeps = null;
+  }
+}
+
+// ---------------- Session Handling ----------------
+const activeSessionStack: string[] = [];
+function getActiveSessionId(): string {
+  const sessionId = activeSessionStack[activeSessionStack.length - 1];
+  if (!sessionId) throw new Error("No active session");
+  return sessionId;
+}
+
+// ---------------- Stateful Sources ----------------
+export function globalStore<T>(init: T): StoreReactiveSource<T> {
+  const subj = new Subject<T>();
+  const notifierSubj = new Subject<void>();
+  const notifier: NotifierReactiveSource = {
+    scope: "global",
+    kind: "stateless",
+    subscribe: (fn) => {
+      fn();
+      const sub = notifierSubj.subscribe(fn);
+      return { unsubscribe: () => sub.unsubscribe() };
+    },
+    notifyChanges: () => notifierSubj.next()
+  };
+  let value = init;
   return {
-    id,
-    get value() {
+    scope: "global" as const,
+    kind: "stateful" as const,
+    get: () => {
+      collectDependency(notifier);
       return value;
     },
-    set value(v: T) {
-      value = v;
-      listeners.forEach(cb => cb(value));
+    set: (val: T) => {
+      value = val;
+      subj.next(value);
+      notifier.notifyChanges();
     },
-    onChange(cb: (v: T) => void) {
-      listeners.add(cb);
-      return () => listeners.delete(cb);
+    mutate: (fn: (prev: T) => T) => {
+      value = fn(value);
+      subj.next(value);
+      notifier.notifyChanges();
+    },
+    subscribe: (fn: Subscriber<T>) => {
+      fn(value);
+      const sub = subj.subscribe(fn);
+      return { unsubscribe: () => sub.unsubscribe() };
     }
+  } satisfies StoreReactiveSource<T>;
+}
+
+export function sessionStore<T>(init: T): StoreReactiveSource<T> {
+  const sessions = new Map<
+    string,
+    { value: T; subj: Subject<T>; notifier: NotifierReactiveSource }
+  >();
+
+  function current() {
+    const sessionId = getActiveSessionId();
+    if (!sessions.has(sessionId)) {
+      const subj = new Subject<T>();
+      const notifierSubj = new Subject<void>();
+      const notifier: NotifierReactiveSource = {
+        scope: "session",
+        kind: "stateless",
+        subscribe: (fn) => {
+          fn();
+          const sub = notifierSubj.subscribe(fn);
+          return { unsubscribe: () => sub.unsubscribe() };
+        },
+        notifyChanges: () => notifierSubj.next()
+      };
+      sessions.set(sessionId, { value: init, subj, notifier });
+    }
+    return sessions.get(sessionId)!;
+  }
+
+  return {
+    scope: "session" as const,
+    kind: "stateful" as const,
+    get: () => {
+      const c = current();
+      collectDependency(c.notifier);
+      return c.value;
+    },
+    set: (val: T) => {
+      const c = current();
+      c.value = val;
+      c.subj.next(val);
+      c.notifier.notifyChanges();
+    },
+    mutate: (fn: (prev: T) => T) => {
+      const c = current();
+      c.value = fn(c.value);
+      c.subj.next(c.value);
+      c.notifier.notifyChanges();
+    },
+    subscribe: (fn: Subscriber<T>) => {
+      const c = current();
+      fn(c.value);
+      const sub = c.subj.subscribe(fn);
+      return { unsubscribe: () => sub.unsubscribe() };
+    }
+  } satisfies StoreReactiveSource<T>;
+}
+
+// ---------------- Stateless Sources ----------------
+export function globalNotifier(): NotifierReactiveSource {
+  const subj = new Subject<void>();
+  return {
+    scope: "global" as const,
+    kind: "stateless" as const,
+    subscribe: (fn: () => void) => {
+      fn();
+      const sub = subj.subscribe(fn);
+      return { unsubscribe: () => sub.unsubscribe() };
+    },
+    notifyChanges: () => subj.next()
   };
 }
 
-// defineEndpoints takes a factory that returns endpoints per WS
-export function defineEndpoints<Endpoints extends Record<string, EndpointOrMutation>>(factory: () => Endpoints) {
-  const endpointsTemplate = factory();
+export function derivedNotifier(sources: ReactiveSource[]): NotifierReactiveSource {
+  const subj = new Subject<void>();
+  const subs = sources.map((src) => src.subscribe(() => subj.next()));
+  return {
+    scope: sources.some((s) => s.scope === "session") ? "session" : "global",
+    kind: "stateless",
+    subscribe: (fn: () => void) => {
+      fn();
+      const sub = subj.subscribe(fn);
+      return { unsubscribe: () => sub.unsubscribe() };
+    },
+    notifyChanges: () => subj.next()
+  };
+}
 
-  const wss = new WebSocketServer({ port: 3001 });
-  const subscriptions = new Map<WebSocket, Set<string>>(); // endpoints this WS subscribed to
+// ---------------- Endpoint / Mutation Helpers ----------------
+export function query<TSchema extends z.ZodTypeAny, TResult>(
+  schema: TSchema,
+  fn: (args: z.infer<TSchema>) => Promise<TResult> | TResult
+) {
+  return (args: unknown): LiveQueryResult<TResult> => {
+    return {
+      subscribe: (notify: Subscriber<TResult>) => {
+        let active = true;
+        let subs: { unsubscribe: () => void }[] = [];
 
-  wss.on("connection", ws => {
-    subscriptions.set(ws, new Set());
+        async function run() {
+          try {
+            const parsed = schema.parse(args);
 
-    // Create a sessionRS for this WS
-    const sessionRS = createSessionRS<any>(null);
-    const endpoints = factory(); // fresh endpoints for this WS
+            // collect deps for this run
+            const { result, deps } = await withDependencyCollectionAsync(() =>
+              fn(parsed)
+            );
 
-    // Build source -> endpoints map
-    const sourceToEndpoints = new Map<string, string[]>();
-    for (const key in endpoints) {
-      const ep = endpoints[key];
-      for (const src of ep.sources ?? []) {
-        const arr = sourceToEndpoints.get(src.id) ?? [];
-        if (!arr.includes(key)) arr.push(key);
-        sourceToEndpoints.set(src.id, arr);
+            if (!active) return;
+            notify(result);
 
-        // Listen to source changes
-        src.onChange(() => {
-          const eps = sourceToEndpoints.get(src.id) ?? [];
-          eps.forEach(epKey => {
-            if (subscriptions.get(ws)?.has(epKey)) {
-              sendEndpointUpdate(ws, epKey, null);
+            // unsubscribe old deps
+            subs.forEach((s) => s.unsubscribe());
+            subs = [];
+
+            // subscribe to new deps
+            subs = deps.map((dep) =>
+              dep.subscribe(async () => {
+                if (!active) return;
+                const updated = await fn(parsed);
+                notify(updated);
+              })
+            );
+          } catch (err) {
+            if (active) {
+              notify(Promise.reject(err) as unknown as TResult);
             }
-          });
-        });
-      }
-    }
-
-    // --- WS message handler ---
-    ws.on("message", async raw => {
-      try {
-        const msg = JSON.parse(raw.toString());
-        const ep = endpoints[msg.endpoint];
-        if (!ep) throw new Error(`Unknown endpoint: ${msg.endpoint}`);
-
-        const ctx: EndpointContext = { ws, sessionRS };
-        const params = msg.params ?? null;
-
-        if ("fetch" in ep && (msg.type === "subscribe" || msg.type === "fetch")) {
-          subscriptions.get(ws)?.add(msg.endpoint);
-          const data = await ep.fetch({ ctx, params });
-          ws.send(JSON.stringify({ type: "dataUpdate", endpoint: msg.endpoint, params, data }));
+          }
         }
 
-        if ("mutate" in ep && msg.type === "call") {
-          const result = await ep.mutate({ ctx, params });
-          ws.send(JSON.stringify({ type: "mutationSuccess", endpoint: msg.endpoint, id: msg.id, result }));
+        // first run immediately
+        run();
+
+        return {
+          unsubscribe: () => {
+            active = false;
+            subs.forEach((s) => s.unsubscribe());
+          }
+        };
+      }
+    };
+  };
+}
+
+export function mutation<TSchema extends z.ZodTypeAny, TResult = void>(
+  schema: TSchema,
+  fn: (args: z.infer<TSchema>) => Promise<TResult> | TResult
+) {
+  return async (args: unknown): Promise<TResult> => {
+    const parsed = schema.parse(args);
+    return await fn(parsed);
+  };
+}
+
+// ---------------- WebSocket Server ----------------
+export function createReactiveWSServer<Endpoints extends Record<string, QueryOrMutation>>(
+  factory: () => Endpoints,
+  port: number
+) {
+  const actions = factory();
+  const wss = new WebSocketServer({ port });
+  const clientSubs = new Map<WebSocket, ClientSubscription[]>();
+
+  wss.on("connection", (ws) => {
+    clientSubs.set(ws, []);
+    const sessionId = crypto.randomUUID(); // unique session per connection
+    activeSessionStack.push(sessionId);
+
+    ws.on("message", async (raw) => {
+      const msg = JSON.parse(raw.toString());
+      const fn = actions[msg.name];
+      if (!fn) {
+        ws.send(JSON.stringify({ type: "error", message: "Unknown action: " + msg.name }));
+        return;
+      }
+
+      try {
+        if (msg.type === "subscribe") {
+          const result = fn(msg.params);
+
+          if ("subscribe" in result) {
+            const sub = result.subscribe((data) =>
+              ws.send(JSON.stringify({ type: "update", name: msg.name, data }))
+            );
+            clientSubs.get(ws)!.push({ name: msg.name, sub });
+          } else {
+            ws.send(JSON.stringify({ type: "update", name: msg.name, data: result }));
+          }
+        }
+
+        if (msg.type === "unsubscribe") {
+          const subs = clientSubs.get(ws);
+          if (subs) {
+            for (const s of subs.filter((s) => s.name === msg.name)) s.sub.unsubscribe();
+            clientSubs.set(ws, subs.filter((s) => s.name !== msg.name));
+          }
+        }
+
+        if (msg.type === "mutation") {
+          const result = await fn(msg.params);
+          ws.send(JSON.stringify({ type: "mutationResult", name: msg.name, data: result }));
         }
       } catch (err) {
-        console.error("Invalid WS message:", err);
+        ws.send(JSON.stringify({ type: "error", name: msg.name, error: String(err) }));
       }
     });
 
-    ws.on("close", () => subscriptions.delete(ws));
-
-    // Helper to refresh endpoint
-    async function sendEndpointUpdate(ws: WebSocket, endpointKey: string, params: any) {
-      const ep = endpoints[endpointKey];
-      if (!ep || !("fetch" in ep)) return;
-      const ctx: EndpointContext = { ws, sessionRS };
-      const data = await ep.fetch({ ctx, params });
-      ws.send(JSON.stringify({ type: "dataUpdate", endpoint: endpointKey, params, data }));
-    }
+    ws.on("close", () => {
+      const subs = clientSubs.get(ws);
+      if (subs) for (const s of subs) s.sub.unsubscribe();
+      clientSubs.delete(ws);
+      activeSessionStack.pop();
+    });
   });
 
-  console.log("✅ Reactive WS server running at ws://localhost:3001");
-  return { wss, subscriptions, endpoints: endpointsTemplate };
+  console.log("Reactive WS server running");
+  return { wss, actions };
 }
