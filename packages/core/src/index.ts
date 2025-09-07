@@ -11,6 +11,7 @@ export interface ReactiveSourceBase<T = any> {
     fn: Subscriber<T>,
     _sessionId?: string
   ) => { unsubscribe: () => void };
+  notifyChanges(): void; // now every reactive source can notify
 }
 
 export interface StoreReactiveSource<T> extends ReactiveSourceBase<T> {
@@ -22,7 +23,6 @@ export interface StoreReactiveSource<T> extends ReactiveSourceBase<T> {
 
 export interface NotifierReactiveSource extends ReactiveSourceBase<void> {
   kind: "stateless";
-  notifyChanges: () => void;
 }
 
 export interface LiveQueryResult<TResult> {

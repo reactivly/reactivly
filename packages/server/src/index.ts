@@ -45,36 +45,18 @@ function getCurrentSessionId(): string {
 /* ---------------- Stateful Stores ---------------- */
 export function globalStore<T>(init: T): StoreReactiveSource<T> {
   const subj = new BehaviorSubject<T>(init);
-  const notifierSubj = new Subject<void>();
-  const notifier: NotifierReactiveSource = {
-    scope: "global",
-    kind: "stateless",
-    subscribe: (fn) => {
-      const sub = notifierSubj.subscribe(fn);
-      return { unsubscribe: () => sub.unsubscribe() };
-    },
-    notifyChanges: () => notifierSubj.next(),
-  };
 
   return {
     scope: "global",
     kind: "stateful",
-    get: () => {
-      // collectDependency(notifier);
-      return subj.getValue();
-    },
-    set: (val: T) => {
-      subj.next(val);
-      notifier.notifyChanges();
-    },
-    mutate: (fn: (prev: T) => T) => {
-      subj.next(fn(subj.getValue()));
-      notifier.notifyChanges();
-    },
+    get: () => subj.getValue(),
+    set: (val: T) => subj.next(val),
+    mutate: (fn: (prev: T) => T) => subj.next(fn(subj.getValue())),
     subscribe: (fn: Subscriber<T>) => {
       const sub = subj.subscribe(fn);
       return { unsubscribe: () => sub.unsubscribe() };
     },
+    notifyChanges: () => subj.next(subj.getValue()), // only manual trigger if needed
   };
 }
 
@@ -123,7 +105,7 @@ function _sessionStore<T>(init: T) {
       const sub = subj.subscribe(fn);
       return { unsubscribe: () => sub.unsubscribe() };
     },
-    notifier(sessionId: string) {
+    notifyChanges(sessionId: string) {
       return current(sessionId).notifier;
     },
   };
@@ -138,8 +120,8 @@ export function sessionStore<T>(init: T): StoreReactiveSource<T> {
     get: () => internal.get(getCurrentSessionId()),
     set: (val: T) => internal.set(getCurrentSessionId(), val),
     mutate: (fn: (prev: T) => T) => internal.mutate(getCurrentSessionId(), fn),
-    subscribe: (fn: Subscriber<T>) =>
-      internal.subscribe(getCurrentSessionId(), fn),
+    subscribe: (fn: Subscriber<T>) => internal.subscribe(getCurrentSessionId(), fn),
+    notifyChanges: () => internal.notifyChanges(getCurrentSessionId()), // manual only
   };
 }
 
@@ -188,65 +170,44 @@ export interface QueryOptions<TSchema extends z.ZodTypeAny | undefined, TResult>
   deps?: ReactiveSource[];
 }
 
-export function query<TSchema extends z.ZodTypeAny | undefined, TResult>(
-  opts: QueryOptions<TSchema, TResult>
-) {
-  return (
-    args: TSchema extends z.ZodTypeAny ? z.infer<TSchema> : undefined
-  ): LiveQueryResult<TResult> => {
+export function query<TResult>(opts: { fn: () => TResult | Promise<TResult>; deps?: ReactiveSource[] }) {
+  return (): { subscribe: (notify: (res: TResult) => void) => { unsubscribe(): void } } => {
     return {
-      subscribe: (notify: Subscriber<TResult>) => {
+      subscribe: (notify) => {
         let active = true;
-        let subs: { unsubscribe: () => void }[] = [];
-        let running = false;
-        let pending = false;
+        let initialRunDone = false;
 
-        async function run() {
-          if (!active) return;
-          if (running) {
-            pending = true;
-            return;
-          }
-
-          running = true;
-          try {
-            const parsed = opts.schema ? opts.schema.parse(args) : (undefined as any);
-            const result = await opts.fn(parsed);
-
-            if (!active) return;
-            notify(result);
-          } catch (err) {
-            if (active) notify(Promise.reject(err) as unknown as TResult);
-          } finally {
-            running = false;
-            if (!active) return;
-
-            // If an update happened while we were running, rerun once
-            if (pending) {
-              pending = false;
-              run();
-            }
-          }
-        }
-
-        // Subscribe only to manual deps
-        subs = (opts.deps ?? []).map((dep) =>
+        // Subscribe to deps **once** and trigger run() on updates
+        const subs = (opts.deps ?? []).map(dep =>
           dep.subscribe(() => {
-            if (!active) return;
-            run();
+            if (active) run();
           })
         );
 
-        // Run initially
+        async function run() {
+          const result = await opts.fn();
+          if (!active) return;
+
+          // Only notify on first run after subscription
+          if (!initialRunDone) {
+            initialRunDone = true;
+            notify(result);
+          } else {
+            // Subsequent updates from deps
+            notify(result);
+          }
+        }
+
+        // Initial run
         run();
 
         return {
           unsubscribe: () => {
             active = false;
-            subs.forEach((s) => s.unsubscribe());
-          },
+            subs.forEach(s => s.unsubscribe());
+          }
         };
-      },
+      }
     };
   };
 }
