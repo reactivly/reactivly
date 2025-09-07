@@ -170,8 +170,12 @@ export interface QueryOptions<TSchema extends z.ZodTypeAny | undefined, TResult>
   deps?: ReactiveSource[];
 }
 
-export function query<TResult>(opts: { fn: () => TResult | Promise<TResult>; deps?: ReactiveSource[] }) {
-  return (): { subscribe: (notify: (res: TResult) => void) => { unsubscribe(): void } } => {
+export function query<TSchema extends z.ZodTypeAny | undefined, TResult>(
+  opts: QueryOptions<TSchema, TResult>
+) {
+  return (
+    args: TSchema extends z.ZodTypeAny ? z.infer<TSchema> : undefined
+  ): LiveQueryResult<TResult> => {
     return {
       subscribe: (notify) => {
         let active = true;
@@ -185,7 +189,8 @@ export function query<TResult>(opts: { fn: () => TResult | Promise<TResult>; dep
         );
 
         async function run() {
-          const result = await opts.fn();
+            const parsed = opts.schema ? opts.schema.parse(args) : (undefined as any);
+            const result = await opts.fn(parsed);
           if (!active) return;
 
           // Only notify on first run after subscription
