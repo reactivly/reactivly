@@ -134,82 +134,115 @@ export interface DerivedStoreOptions<T> {
 }
 
 /**
- * Derived store holds a value computed from deps or a function
- * Supports session/global awareness, cache, and debounce
+ * Derived store / query.
+ * - If cache=0, result is not stored; emits only when deps change.
+ * - If cache>0 or Infinity, last value is stored for new subscribers.
+ * - Supports optional debounce.
  */
-export function derivedStore<T>(opts: DerivedStoreOptions<T>): StoreReactiveSource<T> {
-  const subj = new BehaviorSubject<T | null>(null);
-  let lastResult: T | undefined = undefined;
-  let lastFetchTime = 0;
+export function derivedStore<T>(
+  opts: DerivedStoreOptions<T>
+): StoreReactiveSource<T> {
+  const { deps = [], fn, cache = Infinity, debounce } = opts;
 
-  const notifierSubj = new Subject<void>();
-  const notifier: StoreReactiveSource<T>["notifyChanges"] = () => {
-    if (lastResult !== undefined) subj.next(lastResult);
+  const hasCache = cache !== 0;
+  let lastValue: T | undefined;
+  let activeSubs = 0;
+
+  const subj = hasCache
+    ? new BehaviorSubject<T | undefined>(undefined)
+    : new Subject<T>();
+
+  let timeout: NodeJS.Timeout | null = null;
+  let running = false;
+  let pending = false;
+
+  // Core runner
+  const run = async () => {
+    if (debounce) {
+      if (timeout) clearTimeout(timeout);
+      timeout = setTimeout(() => execute(), debounce);
+    } else {
+      await execute();
+    }
   };
 
-  let activeSubs: Subscription[] = [];
-  let running = false;
-
-  async function compute(force = false) {
-    const now = Date.now();
-    const useCache = opts.cache !== 0 && lastResult !== undefined && !force;
-    const cacheValid = opts.cache === Infinity || (opts.cache && now - lastFetchTime < opts.cache);
-
-    if (useCache && cacheValid) {
-      // re-emit cached value
-      subj.next(lastResult!);
+  const execute = async () => {
+    if (running) {
+      pending = true;
       return;
     }
-
-    if (running) return; // prevent concurrent runs
     running = true;
 
     try {
-      const result = await opts.fn();
-      lastResult = result;
-      lastFetchTime = Date.now();
+      const result = await fn();
+      if (hasCache) {
+        lastValue = result;
+
+        // handle cache expiration if cache is finite
+        if (cache !== Infinity) {
+          setTimeout(() => {
+            lastValue = undefined;
+          }, cache);
+        }
+      }
+
       subj.next(result);
-      notifierSubj.next();
     } finally {
       running = false;
-    }
-  }
-
-  const subs: Subscription[] = [];
-  (opts.deps ?? []).forEach(dep => {
-    subs.push(dep.subscribe(() => {
-      if (opts.debounce) {
-        timer(opts.debounce).subscribe(() => compute());
-      } else {
-        compute();
+      if (pending) {
+        pending = false;
+        run();
       }
-    }));
-  });
+    }
+  };
 
-  // Initial compute
-  compute();
+  // Subscribe to deps
+  const depSubs: { unsubscribe(): void }[] = deps.map(dep =>
+    dep.subscribe(() => {
+      run();
+    })
+  );
 
   return {
-    scope: (opts.deps?.some(d => d.scope === "session") ? "session" : "global") as any,
+    scope: deps.some(d => d.scope === "session") ? "session" : "global",
     kind: "stateful",
-    get: () => lastResult!,
+    get: () => {
+      if (!hasCache) throw new Error("Cannot get value from a non-cached derived store");
+      if (lastValue === undefined) throw new Error("Value not yet initialized");
+      return lastValue;
+    },
     set: () => {
       throw new Error("Cannot set derived store directly");
     },
     mutate: () => {
       throw new Error("Cannot mutate derived store directly");
     },
-    subscribe: (fn: Subscriber<T>) => {
-      const sub = subj.subscribe(val => {
-        if (val !== null) fn(val);
+    subscribe(fn: Subscriber<T>) {
+      activeSubs++;
+
+      if (hasCache && lastValue !== undefined) {
+        fn(lastValue);
+      } else {
+        run();
+      }
+
+      const sub = subj.subscribe((val) => {
+        if (val !== undefined) fn(val);
       });
-      activeSubs.push(sub);
-      return { unsubscribe: () => sub.unsubscribe() };
+
+      return {
+        unsubscribe() {
+          sub.unsubscribe();
+          activeSubs--;
+          if (activeSubs === 0) depSubs.forEach(s => s.unsubscribe());
+        },
+      };
     },
-    notifyChanges: notifier,
+    notifyChanges() {
+      run();
+    },
   };
 }
-
 
 /* ---------------- Stateless Sources ---------------- */
 export function globalNotifier(): NotifierReactiveSource {
