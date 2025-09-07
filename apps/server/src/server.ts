@@ -73,8 +73,8 @@ const { actions: endpoints } = createReactiveWSServer(() => {
       },
     }),
     incrementCounter: mutation({
-      schema: z.object({ step: z.number().optional() }),
-      fn: ({ step = 1 }) => counter.mutate((n) => n + step),
+      schema: z.object({ step: z.number().default(1) }),
+      fn: ({ step }) => counter.mutate((n) => n + step),
     }),
     getCounter: query({
       deps: [counter],
@@ -86,7 +86,6 @@ const { actions: endpoints } = createReactiveWSServer(() => {
     // ),
     itemsList: query({
       deps: [pgNotifier.notifierFor(items)],
-      schema: z.undefined(),
       async fn() {
         const res = await db.select().from(items).orderBy(asc(items.id));
         console.log("itemsList", res);

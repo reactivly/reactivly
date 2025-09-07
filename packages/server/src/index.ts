@@ -1,5 +1,6 @@
 import WebSocket, { WebSocketServer } from "ws";
 import { BehaviorSubject, Subject } from "rxjs";
+import { Subscription, timer } from "rxjs";
 import { z } from "zod";
 import type {
   StoreReactiveSource,
@@ -125,6 +126,91 @@ export function sessionStore<T>(init: T): StoreReactiveSource<T> {
   };
 }
 
+export interface DerivedStoreOptions<T> {
+  deps?: ReactiveSource[];
+  fn: () => T | Promise<T>;
+  cache?: number; // 0 = no cache, number = ms, Infinity = always use cache
+  debounce?: number | undefined; // optional debounce in ms
+}
+
+/**
+ * Derived store holds a value computed from deps or a function
+ * Supports session/global awareness, cache, and debounce
+ */
+export function derivedStore<T>(opts: DerivedStoreOptions<T>): StoreReactiveSource<T> {
+  const subj = new BehaviorSubject<T | null>(null);
+  let lastResult: T | undefined = undefined;
+  let lastFetchTime = 0;
+
+  const notifierSubj = new Subject<void>();
+  const notifier: StoreReactiveSource<T>["notifyChanges"] = () => {
+    if (lastResult !== undefined) subj.next(lastResult);
+  };
+
+  let activeSubs: Subscription[] = [];
+  let running = false;
+
+  async function compute(force = false) {
+    const now = Date.now();
+    const useCache = opts.cache !== 0 && lastResult !== undefined && !force;
+    const cacheValid = opts.cache === Infinity || (opts.cache && now - lastFetchTime < opts.cache);
+
+    if (useCache && cacheValid) {
+      // re-emit cached value
+      subj.next(lastResult!);
+      return;
+    }
+
+    if (running) return; // prevent concurrent runs
+    running = true;
+
+    try {
+      const result = await opts.fn();
+      lastResult = result;
+      lastFetchTime = Date.now();
+      subj.next(result);
+      notifierSubj.next();
+    } finally {
+      running = false;
+    }
+  }
+
+  const subs: Subscription[] = [];
+  (opts.deps ?? []).forEach(dep => {
+    subs.push(dep.subscribe(() => {
+      if (opts.debounce) {
+        timer(opts.debounce).subscribe(() => compute());
+      } else {
+        compute();
+      }
+    }));
+  });
+
+  // Initial compute
+  compute();
+
+  return {
+    scope: (opts.deps?.some(d => d.scope === "session") ? "session" : "global") as any,
+    kind: "stateful",
+    get: () => lastResult!,
+    set: () => {
+      throw new Error("Cannot set derived store directly");
+    },
+    mutate: () => {
+      throw new Error("Cannot mutate derived store directly");
+    },
+    subscribe: (fn: Subscriber<T>) => {
+      const sub = subj.subscribe(val => {
+        if (val !== null) fn(val);
+      });
+      activeSubs.push(sub);
+      return { unsubscribe: () => sub.unsubscribe() };
+    },
+    notifyChanges: notifier,
+  };
+}
+
+
 /* ---------------- Stateless Sources ---------------- */
 export function globalNotifier(): NotifierReactiveSource {
   const subj = new Subject<void>();
@@ -164,58 +250,41 @@ export function derivedNotifier(
 }
 
 /* ---------------- Endpoint Helpers ---------------- */
-export interface QueryOptions<TSchema extends z.ZodTypeAny | undefined, TResult> {
+export interface QueryOptions<TSchema, TResult> {
   schema?: TSchema;
-  fn: (args: TSchema extends z.ZodTypeAny ? z.infer<TSchema> : undefined) => Promise<TResult> | TResult;
+  fn: (args: TSchema extends { parse: any } ? z.infer<TSchema> : undefined) => Promise<TResult> | TResult;
   deps?: ReactiveSource[];
+  cache?: number;      // 0 = no cache, number = ms, Infinity = always
+  debounce?: number;   // optional debounce in ms
 }
 
-export function query<TSchema extends z.ZodTypeAny | undefined, TResult>(
+/**
+ * Query factory with reactive inputs
+ */
+export function query<TSchema = undefined, TResult = any>(
   opts: QueryOptions<TSchema, TResult>
 ) {
-  return (
-    args: TSchema extends z.ZodTypeAny ? z.infer<TSchema> : undefined
-  ): LiveQueryResult<TResult> => {
-    return {
-      subscribe: (notify) => {
-        let active = true;
-        let initialRunDone = false;
+  return (input?: ReactiveSource | ReactiveSource[] | undefined) => {
+    const inputDeps: ReactiveSource[] = [];
 
-        // Subscribe to deps **once** and trigger run() on updates
-        const subs = (opts.deps ?? []).map(dep =>
-          dep.subscribe(() => {
-            if (active) run();
-          })
-        );
+    // normalize inputs to array
+    if (input) {
+      if (Array.isArray(input)) inputDeps.push(...input);
+      else inputDeps.push(input);
+    }
 
-        async function run() {
-            const parsed = opts.schema ? opts.schema.parse(args) : (undefined as any);
-            const result = await opts.fn(parsed);
-          if (!active) return;
+    // merge with optional static deps
+    const allDeps = [...(opts.deps ?? []), ...inputDeps];
 
-          // Only notify on first run after subscription
-          if (!initialRunDone) {
-            initialRunDone = true;
-            notify(result);
-          } else {
-            // Subsequent updates from deps
-            notify(result);
-          }
-        }
-
-        // Initial run
-        run();
-
-        return {
-          unsubscribe: () => {
-            active = false;
-            subs.forEach(s => s.unsubscribe());
-          }
-        };
-      }
-    };
+    return derivedStore<TResult>({
+      deps: allDeps,
+      fn: () => opts.fn(input ? (Array.isArray(input) ? input.map(i => ('get' in i ? i.get() : i)) : ('get' in input ? input.get() : input)) : undefined),
+      cache: opts.cache ?? 0,
+      debounce: opts.debounce,
+    });
   };
 }
+
 
 interface MutationOptions<TSchema extends z.ZodTypeAny | undefined, TResult> {
   schema?: TSchema;
