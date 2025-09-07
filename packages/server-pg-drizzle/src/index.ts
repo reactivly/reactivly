@@ -1,60 +1,63 @@
-import { collectDependency, type NotifierReactiveSource } from "@reactivly/server";
 import pg from "pg";
-import type { AnyPgTable, PgTableWithColumns } from "drizzle-orm/pg-core";
-import { getTableName, Table } from "drizzle-orm";
+import type { PgTableWithColumns } from "drizzle-orm/pg-core";
+import { getTableName } from "drizzle-orm";
+import type { NotifierReactiveSource } from "@reactivly/server";
 
 export function createPgNotifier({ connectionString }: { connectionString: string }) {
   const client = new pg.Client({ connectionString });
-  const sources = new Map<PgTableWithColumns<any>, NotifierReactiveSource>();
-  const channels = new Map<PgTableWithColumns<any>, string>();
 
-  let connected = false;
+  const sources = new Map<PgTableWithColumns<any>, NotifierReactiveSource>();
+  const subscribers = new Map<PgTableWithColumns<any>, Set<() => void>>();
+  const connectedTables = new Set<PgTableWithColumns<any>>();
+
+  let connectPromise: Promise<void> | null = null;
+
   async function ensureClient() {
-    if (!connected) {
-      await client.connect();
-      client.on("notification", (msg) => {
-        for (const [table, src] of sources) {
-          const channel = channels.get(table)!;
-          if (msg.channel === channel) {
-            src.notifyChanges(); // use the public API
+    if (!connectPromise) {
+      connectPromise = client.connect().then(() => {
+        client.on("notification", (msg) => {
+          for (const [table, src] of sources) {
+            const channel = getTableName(table) + "_channel";
+            if (msg.channel === channel) {
+              subscribers.get(table)?.forEach((fn) =>
+                Promise.resolve(fn()).catch(console.error)
+              );
+              src.notifyChanges();
+            }
           }
-        }
+        });
       });
-      connected = true;
     }
+    await connectPromise;
   }
 
-  return {
-    proxy: <T extends PgTableWithColumns<any>>(table: T) => {
-      if (!sources.has(table)) {
-        const channel = `${getTableName(table)}_channel`;
-        channels.set(table, channel);
+  function notifierFor<T extends PgTableWithColumns<any>>(table: T): NotifierReactiveSource {
+    if (!sources.has(table)) {
+      const subs = new Set<() => void>();
+      subscribers.set(table, subs);
 
-        const subscribers = new Set<() => void>();
+      const src: NotifierReactiveSource = {
+        scope: "global",
+        kind: "stateless",
+        subscribe(fn) {
+          subs.add(fn);
+          if (!connectedTables.has(table)) {
+            ensureClient().then(() =>
+              client.query(`LISTEN "${getTableName(table)}_channel"`)
+            );
+            connectedTables.add(table);
+          }
+          return { unsubscribe: () => subs.delete(fn) };
+        },
+        notifyChanges() {
+          subs.forEach((fn) => Promise.resolve(fn()).catch(console.error));
+        },
+      };
 
-        const src: NotifierReactiveSource = {
-          scope: "global",
-          kind: "stateless",
-          subscribe(fn) {
-            fn(); // initial trigger
-            if (!connected) ensureClient();
-            client.query(`LISTEN "${channel}"`);
-            subscribers.add(fn);
-            return {
-              unsubscribe: () => subscribers.delete(fn),
-            };
-          },
-          notifyChanges() {
-            for (const fn of subscribers) fn();
-          },
-        };
+      sources.set(table, src);
+    }
+    return sources.get(table)!;
+  }
 
-        sources.set(table, src);
-      }
-
-      const src = sources.get(table)!;
-      collectDependency(src); // implicit dependency tracking
-      return table; // return the Drizzle table for queries
-    },
-  };
-};
+  return { notifierFor };
+}

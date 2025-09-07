@@ -16,7 +16,7 @@ import {
   mutation,
   sessionStore,
 } from "@reactivly/server";
-export {type LiveQueryResult} from "@reactivly/server"
+// export {type LiveQueryResult} from "@reactivly/server"
 
 console.log("CWD:", process.cwd());
 
@@ -30,8 +30,10 @@ if (!connectionString) {
 // - `ordersByItem`: depends on `orders` only (example transform)
 // - `dashboard`: depends on BOTH `items` and `orders`
 
-
-interface User { username: string; password: string }
+interface User {
+  username: string;
+  password: string;
+}
 
 const { actions: endpoints } = createReactiveWSServer(() => {
   const counter = globalStore(0);
@@ -40,56 +42,79 @@ const { actions: endpoints } = createReactiveWSServer(() => {
 
   // const myPendingOrders = derivedNotifier([orders, sessionUser]);
 
-  const pgNotifier = createPgNotifier({ connectionString: process.env.DATABASE_URL! });
+  const pgNotifier = createPgNotifier({
+    connectionString: process.env.DATABASE_URL!,
+  });
   const fsNotifier = createFsNotifier();
 
   return {
-    getMyOrders: query(z.object({ userId: z.number() }), async ({ userId }) => {
-      const user = sessionUser.get();
-      if (!user) return [];
-      return db.select().from(items).where(eq(items.id, userId));
+    getMyOrders: query({
+      schema: z.object({ userId: z.number() }),
+      deps: [sessionUser],
+      async fn({ userId }: { userId: number }) {
+        const user = sessionUser.get();
+        if (!user) return [];
+        return db.select().from(items).where(eq(items.id, userId));
+      },
     }),
-    sessionUser: query(z.undefined(), () => sessionUser.get()),
-    login: mutation(
-      z.object({ username: z.string(), password: z.string() }),
-      ({ username, password }) => {
+    sessionUser: query({
+      deps: [sessionUser],
+      fn: () => sessionUser.get(),
+    }),
+    login: mutation({
+      schema: z.object({ username: z.string(), password: z.string() }),
+      fn: ({ username, password }: { username: string; password: string }) => {
         sessionUser.set({ username, password });
-      }
-    ),
-    logout: mutation(z.undefined(), () => {
-      sessionUser.set(null);
+      },
     }),
-    incrementCounter: mutation(
-      z.object({ step: z.number().optional() }),
-      ({ step = 1 }) => counter.mutate((n) => n + step)
-    ),
+    logout: mutation({
+      fn: () => {
+        sessionUser.set(null);
+      },
+    }),
+    incrementCounter: mutation({
+      schema: z.object({ step: z.number().optional() }),
+      fn: ({ step = 1 }) => counter.mutate((n) => n + step),
+    }),
+    getCounter: query({
+      deps: [counter],
+      fn: () => counter.get(),
+    }),
     // setSessionUser: mutation(
     //   z.object({ user: z.object({ id: z.number(), name: z.string() }) }),
     //   ({ user }) => sessionUser.set(user)
     // ),
-    itemsList: query(z.undefined(), async () =>{
-      const items$ = pgNotifier.proxy(items);
-      const res = await db.select().from(items$).orderBy(asc(items.id))
-      console.log("itemsList", res)
-      return res
+    itemsList: query({
+      deps: [pgNotifier.notifierFor(items)],
+      schema: z.undefined(),
+      async fn() {
+        const res = await db.select().from(items).orderBy(asc(items.id));
+        console.log("itemsList", res);
+        return res;
+      },
     }),
 
-    fileWatcher: query(z.undefined(), async () => {
-      try {
-        return await fs.readFile(fsNotifier.proxy("./data.txt"), "utf-8");
-      } catch (err) {
-        return null;
-      }
+    fileWatcher: query({
+      deps: [fsNotifier.notifierFor("./data.txt")],
+      fn: () => {
+        return fs.readFile("./data.txt", "utf-8");
+      },
     }),
 
-    addItem: mutation(z.object({ name: z.string() }), async ({ name }) => {
-      console.log(name);
-      await db.insert(items).values({ name });
-      return { success: true };
+    addItem: mutation({
+      schema: z.object({ name: z.string() }),
+      fn: async ({ name }: { name: string }) => {
+        console.log(name);
+        await db.insert(items).values({ name });
+        return { success: true };
+      },
     }),
-    deleteItem: mutation(z.object({ id: z.number() }), async ({ id }) => {
-      await db.delete(items).where(eq(items.id, id));
-      return { success: true };
+    deleteItem: mutation({
+      schema: z.object({ id: z.number() }),
+      fn: async ({ id }: { id: number }) => {
+        await db.delete(items).where(eq(items.id, id));
+        return { success: true };
+      },
     }),
   };
 }, 3001);
