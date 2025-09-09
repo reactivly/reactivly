@@ -1,4 +1,3 @@
-
 /* ---------------- Core Types ---------------- */
 export type Scope = "global" | "session";
 export type Kind = "stateful" | "stateless";
@@ -11,7 +10,7 @@ export interface ReactiveSourceBase<T = any> {
     fn: Subscriber<T>,
     _sessionId?: string
   ) => { unsubscribe: () => void };
-  notifyChanges(): void; // now every reactive source can notify
+  notifyChanges(): void;
 }
 
 export interface StoreReactiveSource<T> extends ReactiveSourceBase<T> {
