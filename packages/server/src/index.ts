@@ -249,6 +249,14 @@ export function derivedNotifier(
   };
 }
 
+function isReactiveSource(val: any): val is ReactiveSource {
+  return (
+    val &&
+    typeof val.subscribe === "function" &&
+    typeof val.notifyChanges === "function"
+  );
+}
+
 /* ---------------- Queries & Mutations ---------------- */
 export interface QueryOptions<TSchema, TResult> {
   schema?: TSchema;
@@ -304,7 +312,6 @@ export function mutation<
 }
 
 /* ---------------- WebSocket Server ---------------- */
-/* ---------------- WebSocket Server ---------------- */
 export function createReactiveWSServer<Endpoints extends Record<string, any>>(
   factory: () => Endpoints,
   port: number
@@ -313,17 +320,12 @@ export function createReactiveWSServer<Endpoints extends Record<string, any>>(
   const wss = new WebSocketServer({ port });
   const sessionMap = new Map<WebSocket, string>();
 
-  // Active queries per session
   interface ActiveQuery {
     store: LiveQueryResult<any>;
-    subscribers: Map<string, { unsubscribe: () => void }>; // subId -> unsubscribe
+    subscribers: Map<string, { unsubscribe: () => void }>;
   }
-  const activeQueries = new Map<
-    string, // key = `${sessionId}:${queryName}:${JSON.stringify(params)}`
-    ActiveQuery
-  >();
+  const activeQueries = new Map<string, ActiveQuery>();
 
-  // Run a function inside a session context
   function runWithSession<T>(sessionId: string, fn: () => T): T {
     return sessionALS.run({ sessionId }, fn);
   }
@@ -334,8 +336,9 @@ export function createReactiveWSServer<Endpoints extends Record<string, any>>(
 
     ws.on("message", async (raw) => {
       const msg = JSON.parse(raw.toString());
-      const fn = actions[msg.name];
-      if (!fn) {
+      const action = actions[msg.name];
+
+      if (!action) {
         return ws.send(
           JSON.stringify({
             type: "error",
@@ -349,11 +352,31 @@ export function createReactiveWSServer<Endpoints extends Record<string, any>>(
           const { subId, params } = msg;
           const key = `${sessionId}:${msg.name}:${JSON.stringify(params)}`;
 
-          let active = activeQueries.get(key);
+          // Case 1: action is a reactive store (globalStore, sessionStore…)
+          if (isReactiveSource(action)) {
+            const sub = action.subscribe((data: any) => {
+              if (ws.readyState === WebSocket.OPEN) {
+                ws.send(
+                  JSON.stringify({
+                    type: "update",
+                    name: msg.name,
+                    data,
+                    subId,
+                  })
+                );
+              }
+            });
+            activeQueries.set(key, {
+              store: action,
+              subscribers: new Map([[subId, sub]]),
+            });
+            return;
+          }
 
-          // Start query if not already active
+          // Case 2: action is a query (function returning a store)
+          let active = activeQueries.get(key);
           if (!active) {
-            const store = fn(params);
+            const store = action(params);
             if (!("subscribe" in store)) {
               // immediate (non-reactive) result
               if (ws.readyState === WebSocket.OPEN) {
@@ -372,7 +395,6 @@ export function createReactiveWSServer<Endpoints extends Record<string, any>>(
             activeQueries.set(key, active);
           }
 
-          // Add this client subscription
           const sub = active.store.subscribe((data: any) => {
             if (ws.readyState === WebSocket.OPEN) {
               ws.send(
@@ -397,7 +419,7 @@ export function createReactiveWSServer<Endpoints extends Record<string, any>>(
             activeQueries.delete(key);
           }
         } else if (msg.type === "mutation") {
-          const result = await fn(msg.params);
+          const result = await action(msg.params);
           if (ws.readyState === WebSocket.OPEN) {
             ws.send(
               JSON.stringify({
@@ -413,7 +435,6 @@ export function createReactiveWSServer<Endpoints extends Record<string, any>>(
     });
 
     ws.on("close", () => {
-      // Cleanup all queries owned by this session
       for (const [key, active] of activeQueries.entries()) {
         if (key.startsWith(sessionId + ":")) {
           for (const sub of active.subscribers.values()) {
