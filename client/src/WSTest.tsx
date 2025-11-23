@@ -3,13 +3,13 @@ import { trpc } from './utils/trpc';
 import { useSubscription } from '@trpc/tanstack-react-query';
 
 export function WSTest() {
-  const mut = useMutation(trpc.post.createPost.mutationOptions({}));
-  const rn = useSubscription(trpc.post.randomNumber.subscriptionOptions());
+  const mut = useMutation(trpc.post.incrementStore.mutationOptions({}));
+  const rn = useSubscription(trpc.post.globalStore.subscriptionOptions());
 
   return (
     <>
       <button onClick={() => mut.mutate({ val: 10 })}>Incr</button>
-      <div>{rn.data?.res}</div>
+      <div>{rn.data}</div>
     </>
   );
 }

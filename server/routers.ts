@@ -6,7 +6,7 @@ import { effect, signal } from "alien-signals";
 import z from "zod";
 import { $items } from "./db/schema";
 import { db } from "./db/client";
-import { asc } from "drizzle-orm";
+import { asc, eq, lte, sql } from "drizzle-orm";
 
 type AnyContextOpts = CreateHTTPContextOptions | CreateWSSContextFnOptions;
 
@@ -24,11 +24,10 @@ export function live<T>(compute: () => T) {
 }
 
 // This is how you initialize a context for the server
-export function createContext(opts: AnyContextOpts ) {
+export function createContext(opts: AnyContextOpts) {
   return {
-    signalStore: signal(100),
+    postsMinLength: signal(0),
     userName: signal<string | undefined>(undefined),
-    numberStore: 777,
   };
 }
 
@@ -40,7 +39,7 @@ const t = initTRPC.context<Context>().create();
 const publicProcedure = t.procedure;
 const router = t.router;
 
-const test = signal(10);
+const globalStore = signal(10);
 
 const greetingRouter = router({
   get: publicProcedure.subscription(({ ctx }) =>
@@ -52,7 +51,7 @@ const greetingRouter = router({
       success: true,
     };
   }),
-  setName: publicProcedure
+  login: publicProcedure
     .input(
       z.object({
         name: z.string().min(2).max(20),
@@ -67,52 +66,62 @@ const greetingRouter = router({
 });
 
 const postRouter = router({
+  setPostMinLength: publicProcedure
+    .input(
+      z.object({
+        val: z.number().min(0).max(20),
+      })
+    )
+    .mutation(({ input, ctx }) => {
+      ctx.postsMinLength(input.val);
+      return {
+        success: true,
+      };
+    }),
   posts: publicProcedure.subscription(({ ctx }) =>
     live(() => {
-      // const listener = $items().v()
       const items = $items();
-      return db.select().from(items).orderBy(asc(items.id))
+      return db.select()
+        .from(items)
+        .where(sql`length(${items.name}) >= ${ctx.postsMinLength()}`)
+        .orderBy(asc(items.id))
     })
   ),
-  createPost: publicProcedure
+  create: publicProcedure
+    .input(
+      z.object({
+        val: z.string(),
+      })
+    )
+    .mutation(({ input }) => {
+      const items = $items();
+      return db.insert(items).values({ name: input.val });
+    }),
+  delete: publicProcedure
+    .input(
+      z.object({
+        id: z.number(),
+      })
+    )
+    .mutation(({ input }) => {
+      const items = $items();
+      return db.delete(items).where(eq(items.id, input.id));
+    }),
+  incrementStore: publicProcedure
     .input(
       z.object({
         val: z.number(),
       })
     )
     .mutation(({ input }) => {
-      // imagine db call here
-      test(test() + input.val);
+      globalStore(globalStore() + input.val);
       return {
         id: `${Math.random()}`,
         ...input,
       };
     }),
-  updateSession: publicProcedure
-    .input(
-      z.object({
-        val: z.number(),
-      })
-    )
-    .mutation(({ input, ctx }) => {
-      // imagine db call here
-      ctx.signalStore(ctx.signalStore() + input.val);
-      console.log(`Updated session to`, ctx.signalStore());
-      return { id: `${Math.random()}`, ...input };
-    }),
-  randomNumber: publicProcedure.subscription(({ ctx }) =>
-    live(() => {
-      return {
-        res: test(),
-      };
-    })
-  ),
-  session: publicProcedure.subscription(({ ctx }) =>
-    live(() => {
-      return {
-        res: ctx.signalStore(),
-      };
-    })
+  globalStore: publicProcedure.subscription(({ ctx }) =>
+    live(() => globalStore())
   ),
 });
 
