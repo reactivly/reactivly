@@ -3,14 +3,18 @@
   "private": true,
   "scripts": {
     "build": "tsc",
-    "dev": "tsx watch index.ts",
+    "dev": "dotenvx run -- tsx watch index.ts",
     "lint": "eslint --cache index.ts",
     "start": "node dist/index.js"
   },
   "dependencies": {
+    "@dotenvx/dotenvx": "^1.51.1",
     "@trpc/server": "npm:@trpc/server",
+    "@types/pg": "^8.15.6",
     "alien-signals": "^3.1.0",
     "cors": "^2.8.5",
+    "drizzle-orm": "^0.44.7",
+    "pg": "^8.16.3",
     "ws": "^8.18.3",
     "zod": "^3.25.51"
   },

@@ -4,16 +4,22 @@ import { CreateWSSContextFnOptions } from "@trpc/server/adapters/ws";
 import { observable } from "@trpc/server/observable";
 import { effect, signal } from "alien-signals";
 import z from "zod";
+import { $items } from "./db/schema";
+import { db } from "./db/client";
+import { asc } from "drizzle-orm";
 
 type AnyContextOpts = CreateHTTPContextOptions | CreateWSSContextFnOptions;
 
 export function live<T>(compute: () => T) {
   return observable<T>((observer) => {
-    const dispose = effect(() => {
+    const dispose = effect(async () => {
       console.log('Computing live value');
-      return observer.next(compute())
+      return observer.next(await compute())
     });
-    return () => dispose();
+    return () => {
+      console.log('Disposing live subscription');
+      dispose();
+    };
   });
 }
 
@@ -21,6 +27,7 @@ export function live<T>(compute: () => T) {
 export function createContext(opts: AnyContextOpts ) {
   return {
     signalStore: signal(100),
+    userName: signal<string | undefined>(undefined),
     numberStore: 777,
   };
 }
@@ -36,16 +43,37 @@ const router = t.router;
 const test = signal(10);
 
 const greetingRouter = router({
-  hello: publicProcedure
+  get: publicProcedure.subscription(({ ctx }) =>
+    live(() => ctx.userName())
+  ),
+  logout: publicProcedure.mutation(({ ctx }) => {
+    ctx.userName(undefined);
+    return {
+      success: true,
+    };
+  }),
+  setName: publicProcedure
     .input(
       z.object({
-        name: z.string(),
+        name: z.string().min(2).max(20),
       })
     )
-    .query(({ input, ctx }) => `Hello, ${input.name}! ${ctx.numberStore}`),
+    .mutation(({ input, ctx }) => {
+      ctx.userName(input.name);
+      return {
+        success: true,
+      };
+    }),
 });
 
 const postRouter = router({
+  posts: publicProcedure.subscription(({ ctx }) =>
+    live(() => {
+      // const listener = $items().v()
+      const items = $items();
+      return db.select().from(items).orderBy(asc(items.id))
+    })
+  ),
   createPost: publicProcedure
     .input(
       z.object({
