@@ -2,20 +2,20 @@ import { createHTTPServer } from '@trpc/server/adapters/standalone';
 import { applyWSSHandler } from '@trpc/server/adapters/ws';
 import { WebSocketServer } from 'ws';
 import cors from 'cors';
-import { appRouter, createContext } from './routers';
+import { router, createContext } from './routers';
 
 // http server
 const server = createHTTPServer({
   middleware: cors(),
-  router: appRouter,
-  createContext: createContext,
+  router,
+  createContext,
 });
 
 // ws server
 const wss = new WebSocketServer({ server });
 applyWSSHandler<AppRouter>({
   wss,
-  router: appRouter,
+  router,
   createContext,
 });
 
@@ -24,4 +24,4 @@ applyWSSHandler<AppRouter>({
 // }, 1000);
 server.listen(2022);
 
-export type AppRouter = typeof appRouter;
+export type AppRouter = typeof router;
