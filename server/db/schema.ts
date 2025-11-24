@@ -1,9 +1,7 @@
 // db/schema.ts
-import { computed, effect, signal, trigger } from "alien-signals";
+import { computed, trigger } from "alien-signals";
 import { getTableName } from "drizzle-orm";
-import { TableConfig } from "drizzle-orm/gel-core";
 import { AnyPgTable } from "drizzle-orm/pg-core";
-import { PgTableWithColumns } from "drizzle-orm/pg-core";
 import { pgTable, serial, text, integer } from "drizzle-orm/pg-core";
 import { Client } from "pg";
 
@@ -21,25 +19,33 @@ const orders = pgTable("orders", {
 const client = new Client({
   connectionString: process.env.DATABASE_URL,
 });
+let isClientConnected = false;
+
+function addListener<T>(channel: string, compute: () => T) {
+  console.log("Listening to table changes for", channel);
+  client.query(`LISTEN ${channel}`);
+  client.on("notification", (msg) => {
+    if (msg.channel !== channel) return;
+    console.log("Notification received:", msg.channel, msg.payload);
+    trigger(compute);
+  });
+}
 
 function pgTableToSignal<T extends AnyPgTable>(table: T) {
-  const compute = computed(() => table)
+  const compute = computed(() => table);
+  const channel = `${getTableName(table)}_channel`;
 
-  client.connect().then(() => {
-    console.log('Listening to table changes for', getTableName(table));
-    client.query(`LISTEN ${getTableName(table)}_channel`);
-    client.on('notification', (msg) => {
-      console.log('Notification received:', msg.channel, msg.payload);
-      trigger(compute);
+  if (!isClientConnected) {
+    isClientConnected = true;
+    client.connect().then(() => {
+      addListener(channel, compute);
     });
-  });
-
-  // effect(() => {
-  //   const current = compute();
-  //   console.log(`Table ${getTableName(table)} signal triggered:`, current);
-  // });
+  } else {
+    addListener(channel, compute);
+  }
 
   return compute;
 }
 
 export const $items = pgTableToSignal(items);
+export const $orders = pgTableToSignal(orders);

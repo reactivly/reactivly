@@ -7,17 +7,18 @@ import z from "zod";
 import { $items } from "./db/schema";
 import { db } from "./db/client";
 import { asc, eq, lte, sql } from "drizzle-orm";
+import { fileToSignal } from "./fs";
 
 type AnyContextOpts = CreateHTTPContextOptions | CreateWSSContextFnOptions;
 
 export function live<T>(compute: () => T) {
   return observable<T>((observer) => {
     const dispose = effect(async () => {
-      console.log('Computing live value');
-      return observer.next(await compute())
+      console.log("Computing live value");
+      return observer.next(await compute());
     });
     return () => {
-      console.log('Disposing live subscription');
+      console.log("Disposing live subscription");
       dispose();
     };
   });
@@ -31,7 +32,6 @@ export function createContext(opts: AnyContextOpts) {
   };
 }
 
-
 type Context = Awaited<ReturnType<typeof createContext>>;
 
 const t = initTRPC.context<Context>().create();
@@ -40,11 +40,14 @@ const publicProcedure = t.procedure;
 const router = t.router;
 
 const globalStore = signal(10);
+const fileSignal = fileToSignal("data.txt");
+
+effect(() => {
+  console.log("fileSignal changed:", fileSignal());
+});
 
 const greetingRouter = router({
-  get: publicProcedure.subscription(({ ctx }) =>
-    live(() => ctx.userName())
-  ),
+  get: publicProcedure.subscription(({ ctx }) => live(() => ctx.userName())),
   logout: publicProcedure.mutation(({ ctx }) => {
     ctx.userName(undefined);
     return {
@@ -63,6 +66,7 @@ const greetingRouter = router({
         success: true,
       };
     }),
+  file: publicProcedure.subscription(() => live(() => fileSignal()())),
 });
 
 const postRouter = router({
@@ -81,10 +85,11 @@ const postRouter = router({
   posts: publicProcedure.subscription(({ ctx }) =>
     live(() => {
       const items = $items();
-      return db.select()
+      return db
+        .select()
         .from(items)
         .where(sql`length(${items.name}) >= ${ctx.postsMinLength()}`)
-        .orderBy(asc(items.id))
+        .orderBy(asc(items.id));
     })
   ),
   create: publicProcedure
