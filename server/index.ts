@@ -2,7 +2,14 @@ import { createHTTPServer } from '@trpc/server/adapters/standalone';
 import { applyWSSHandler } from '@trpc/server/adapters/ws';
 import { WebSocketServer } from 'ws';
 import cors from 'cors';
-import { router, createContext } from './routers';
+import { createContext, t } from './routers/trpc';
+import { greetingRouter } from './routers/greetingRouter';
+import { postRouter } from './routers/postRouter';
+
+const router = t.router({
+  greeting: greetingRouter,
+  post: postRouter,
+});
 
 // http server
 const server = createHTTPServer({
