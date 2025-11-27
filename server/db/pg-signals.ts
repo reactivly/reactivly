@@ -1,7 +1,7 @@
-import { computed, trigger } from "alien-signals";
 import { getTableName } from "drizzle-orm";
 import { AnyPgTable } from "drizzle-orm/pg-core";
 import { Client } from "pg";
+import { BehaviorSubject } from "rxjs";
 
 const client = new Client({
   connectionString: process.env.DATABASE_URL,
@@ -14,22 +14,26 @@ function addListener<T>(channel: string, compute: () => T) {
   client.on("notification", (msg) => {
     if (msg.channel !== channel) return;
     console.log("Notification received:", msg.channel, msg.payload);
-    trigger(compute);
+    compute();
   });
 }
 
-export function pgTableToSignal<T extends AnyPgTable>(table: T) {
-  const compute = computed(() => table);
+export function pgTableToObservable<T extends AnyPgTable>(table: T): BehaviorSubject<T> {
   const channel = `${getTableName(table)}_channel`;
+  const subject = new BehaviorSubject<T>(table); // Emit the initial value
 
-  if (!isClientConnected) {
-    isClientConnected = true;
-    client.connect().then(() => {
-      addListener(channel, compute);
+  const connectAndListen = async () => {
+    if (!isClientConnected) {
+      isClientConnected = true;
+      await client.connect();
+    }
+
+    addListener(channel, () => {
+      subject.next(table); // Emit new values when changes occur
     });
-  } else {
-    addListener(channel, compute);
-  }
+  };
 
-  return compute;
+  connectAndListen().catch((err) => subject.error(err));
+
+  return subject;
 }

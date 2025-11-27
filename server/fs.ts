@@ -1,14 +1,21 @@
-import { computed, trigger } from "alien-signals";
+import { BehaviorSubject } from "rxjs";
 import { watch } from "fs";
 import fs from "fs/promises";
 
-export function fileToSignal(filePath: string) {
-  const reader = () => fs.readFile(filePath, "utf-8");
-  const compute = computed(() => reader);
+export function fileToObservable(filePath: string): BehaviorSubject<() => Promise<string>> {
+  const subject = new BehaviorSubject<() => Promise<string>>(() => fs.readFile(filePath, "utf-8"));
 
-  watch(filePath, () => {
-    trigger(compute);
+  // Watch for changes and update the subject with the same reader function
+  const watcher = watch(filePath, () => {
+    subject.next(() => fs.readFile(filePath, "utf-8"));
   });
 
-  return compute;
+  // Cleanup the watcher when the subject is unsubscribed
+  subject.subscribe({
+    complete: () => {
+      watcher.close();
+    },
+  });
+
+  return subject;
 }

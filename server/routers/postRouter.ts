@@ -1,12 +1,17 @@
 import z from "zod";
-import { $items } from "../db/schema";
+import { $$items } from "../db/schema";
 import { db } from "../db/client";
 import { asc, eq, sql } from "drizzle-orm";
-import { debounceComputed, live } from "../lib/live";
 import { t } from "./trpc";
-import { signal } from "alien-signals";
+import {
+  tap,
+  switchMap,
+  debounceTime,
+  distinctUntilChanged,
+} from "rxjs/operators";
+import { BehaviorSubject, combineLatest } from "rxjs";
 
-const globalStore = signal(10);
+const globalStore = new BehaviorSubject(10);
 
 export const postRouter = t.router({
   setPostMinLength: t.procedure
@@ -16,21 +21,29 @@ export const postRouter = t.router({
       })
     )
     .mutation(({ input, ctx }) => {
-      ctx.postsMinLength(input.val);
+      console.log("Setting postsMinLength to:", input.val);
+      ctx.postsMinLength.next(input.val);
       return {
         success: true,
       };
     }),
   posts: t.procedure.subscription(({ ctx }) =>
-    live(() =>
-      debounceComputed(() => {
-        const items = $items();
+    combineLatest([ctx.postsMinLength, $$items]).pipe(
+      // startWith([0, $$items.getValue()] as const),
+      debounceTime(200), // Add a 300ms debounce to reduce rapid emissions
+      switchMap(([minLength, items]) => {
+        console.log("postsMinLength emitted:", minLength); // Log emitted value of postsMinLength
+        console.log("Computing posts with minLength:", minLength);
         return db
           .select()
           .from(items)
-          .where(sql`length(${items.name}) >= ${ctx.postsMinLength()}`)
+          .where(sql`LENGTH(${items.name}) >= ${minLength}`) // Corrected SQL syntax
           .orderBy(asc(items.id));
-      }, 200)()
+      }),
+      distinctUntilChanged((prev, curr) => JSON.stringify(prev) === JSON.stringify(curr)), // Suppress emissions if the result is the same
+      tap((res) => {
+        console.log("posts subscription computation completed", res);
+      })
     )
   ),
   create: t.procedure
@@ -40,7 +53,7 @@ export const postRouter = t.router({
       })
     )
     .mutation(({ input }) => {
-      const items = $items();
+      const items = $$items.getValue();
       return db.insert(items).values({ name: input.val });
     }),
   delete: t.procedure
@@ -50,7 +63,7 @@ export const postRouter = t.router({
       })
     )
     .mutation(({ input }) => {
-      const items = $items();
+      const items = $$items.getValue();
       return db.delete(items).where(eq(items.id, input.id));
     }),
   incrementStore: t.procedure
@@ -60,11 +73,11 @@ export const postRouter = t.router({
       })
     )
     .mutation(({ input }) => {
-      globalStore(globalStore() + input.val);
+      globalStore.next(globalStore.getValue() + input.val);
       return {
         id: `${Math.random()}`,
         ...input,
       };
     }),
-  globalStore: t.procedure.subscription(({ ctx }) => live(globalStore)),
+  globalStore: t.procedure.subscription(({ ctx }) => globalStore),
 });

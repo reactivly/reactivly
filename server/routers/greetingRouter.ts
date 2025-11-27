@@ -1,20 +1,14 @@
-
 import z from "zod";
-import { live } from "../lib/live";
 import { t } from "./trpc";
-import { fileToSignal } from "../fs";
-import { effect } from "alien-signals";
+import { fileToObservable } from "../fs";
+import { switchMap } from "rxjs/operators";
 
-const fileSignal = fileToSignal("data.txt");
-
-effect(() => {
-  console.log("fileSignal changed:", fileSignal());
-});
+const fileSignal = fileToObservable("data.txt");
 
 export const greetingRouter = t.router({
-  get: t.procedure.subscription(({ ctx }) => live(ctx.userName)),
+  get: t.procedure.subscription(({ ctx }) => ctx.userName),
   logout: t.procedure.mutation(({ ctx }) => {
-    ctx.userName(undefined);
+    ctx.userName.next(undefined);
     return {
       success: true,
     };
@@ -26,10 +20,14 @@ export const greetingRouter = t.router({
       })
     )
     .mutation(({ input, ctx }) => {
-      ctx.userName(input.name);
+      ctx.userName.next(input.name);
       return {
         success: true,
       };
     }),
-  file: t.procedure.subscription(() => live(fileSignal())),
+  file: t.procedure.subscription(() =>
+    fileSignal.pipe(
+      switchMap((readFile) => readFile())
+    )
+  ),
 });

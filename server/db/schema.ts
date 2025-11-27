@@ -1,6 +1,6 @@
 // db/schema.ts
 import { pgTable, serial, text, integer } from "drizzle-orm/pg-core";
-import { pgTableToSignal } from "./pg-signals";
+import { pgTableToObservable } from "./pg-signals";
 
 // Wrap them as reactive
 const items = pgTable("items", {
@@ -13,5 +13,4 @@ const orders = pgTable("orders", {
   quantity: integer("quantity"),
 });
 
-export const $items = pgTableToSignal(items);
-export const $orders = pgTableToSignal(orders);
+export const $$items = pgTableToObservable(items); 
